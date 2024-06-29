@@ -49,7 +49,22 @@ m_binom_scam_2col <- scam(cbind(b1, 20-b1) ~ s(x, bs = "tp"), family = binomial,
 m_binom_scam_wts <- scam(b1/20 ~ s(x, bs = "tp"), weights = rep(20, nrow(dd)),
                                                              family = binomial, data = dd)
 m_binom_glmmTMB <- glmmTMB(cbind(b1, 20-b1) ~ s(x, bs = "tp"), family = binomial, data = dd,
-                          REML = TRUE)
+                           REML = TRUE)
+
+expand_bern <- function(dd, response = "b1", size = 20) {
+    apply(dd, 1,
+          function(x) {
+              browser()
+              k <- x[[response]]
+                       data.frame(response = rep(c(0,1), times = c(size-k, k)),
+                                  x[names(x) != "response"])
+          })
+}
+
+m_binom_scam_expand <- scam(b1/20 ~ s(x, bs = "tp"), weights = rep(20, nrow(dd)),
+                                                             family = binomial, data = dd)
+
+
 
 predmat_binom <- cbind(predict(m_binom_gam_gcv),
                  predict(m_binom_gam_reml),

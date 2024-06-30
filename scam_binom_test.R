@@ -13,7 +13,7 @@ dd <- within(dd, {
              })
 
 par(las = 1, bty = "l") ## cosmetic
-colvec <- c(2,4:6, 8)
+colvec <- c(2,4:6, 8:9)
 
 ## all approaches behave similarly for Bernoulli data
 ## scam only does GCV, glmmTMB only does ML/REML
@@ -52,17 +52,20 @@ m_binom_glmmTMB <- glmmTMB(cbind(b1, 20-b1) ~ s(x, bs = "tp"), family = binomial
                            REML = TRUE)
 
 expand_bern <- function(dd, response = "b1", size = 20) {
-    apply(dd, 1,
+    L <- apply(dd, 1,
           function(x) {
-              browser()
               k <- x[[response]]
-                       data.frame(response = rep(c(0,1), times = c(size-k, k)),
-                                  x[names(x) != "response"])
+              data.frame(response = rep(c(0,1), times = c(size-k, k)),
+                         rbind(x[names(x) != response]))
           })
+    ret <- do.call(rbind, L)
+    names(ret)[names(ret)=="response"] <- response
+    return(ret)
 }
 
-m_binom_scam_expand <- scam(b1/20 ~ s(x, bs = "tp"), weights = rep(20, nrow(dd)),
-                                                             family = binomial, data = dd)
+dd_expand <- expand_bern(dd)
+m_binom_scam_expand <- scam(b1 ~ s(x, bs = "tp"),
+                            family = binomial, data = dd_expand)
 
 
 
@@ -70,7 +73,8 @@ predmat_binom <- cbind(predict(m_binom_gam_gcv),
                  predict(m_binom_gam_reml),
                  predict(m_binom_scam_2col),
                  predict(m_binom_scam_wts),
-                 predict(m_binom_glmmTMB))
+                 predict(m_binom_glmmTMB),
+                 predict(m_binom_scam_expand, newdata = dd))
 
 
 
@@ -81,7 +85,5 @@ points(dd$x, qlogis((dd$b1+0.25)/20.5))
 legend("topright", lty = 1, lwd = 2,
        col = colvec,
        legend = c("gam/GCV", "gam/REML", "scam/GCV/2col",
-                  "scam/GCV/2col/wts", "glmmTMB/REML"))
-
-
-
+                  "scam/GCV/2col/wts", "glmmTMB/REML",
+                  "scam/GCV/expand"))

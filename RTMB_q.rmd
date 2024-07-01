@@ -1,0 +1,5 @@
+
+* Can we include print statements?
+* Does matrix/vector indexing work? (Haven't tried)
+* Why `nlminb` ?
+* make `MakeADFun` less noisy?

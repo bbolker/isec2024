@@ -21,4 +21,5 @@
 *  x simulated data, reedfrog, McCoy data
 *  x Gaussian, binomial
 *  x GAM, scGAM, parametric
-*  
+
+regularization??

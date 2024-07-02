@@ -2,18 +2,19 @@
 library(gdata)
 library(ggplot2)
 library(bbmle)
-library(R2WinBUGS)
+library(R2jags)
 library(plotrix)
 library(nlme)
 library(MASS)
+library(coda)
 
 ##Import data
-x <- read.csv("Response_surfaces_data_Gamboa_data.csv")
+x <- read.csv("McCoy_response_surfaces_Gamboa.csv")
 x$block <- factor(x$block) #Make the block labels into factors
 bugdat <-  subset(x,predtype=="belo")  #Isolate data for Odonates
 ## str(bugdat)
 
-load("waterbug_fits_1.RData")  ## gets res, resframe
+L <- load("waterbug_fits_1.RData")  ## gets res, resframe
 badfit <-  sapply(res,class)=="try-error"
 sum(badfit) ## 4
 resframe[badfit,] ## L-BFGS-B with prop hmodel, csize
@@ -87,7 +88,7 @@ tmpf <- bugsmodel
 ##parse(text=bugsfun)
 
 fn="ricker_prop_bugs.RData"
-library(R2jags)
+
 bfun <- jags
 if (!file.exists(fn)) {
   t.wbugs <- system.time(b <- bfun(data=dat,
@@ -104,7 +105,6 @@ if (!file.exists(fn)) {
 
 fn <- "" ## prevent overwriting later on
 
-library(coda)
 
 plot(b$BUGSoutput)
 b2 <- as.mcmc.list(b$BUGSoutput)

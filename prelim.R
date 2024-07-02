@@ -24,8 +24,12 @@ ddx <- expand_bern(dd, response = "Killed", size = "Initial")
 ## linear fits
 scam_rf_mpd_gauss <- scam(Killed/Initial ~ s(Initial, bs = "mpd"), data = dd)
 gam_rf_tp_gauss <- gam(Killed/Initial ~ s(Initial, bs = "tp", k = 8), data = dd)
-gam_rf_tp_binom <- gam(cbind(Killed, Initial -Killed) ~ s(Initial, bs = "tp", k = 8), data = dd,
+gam_rf_tp_binom <- gam(cbind(Killed, Initial -Killed) ~ s(Initial, bs = "tp",
+                                                          k = 8), data = dd,
                        family = binomial)
+glm_rf_holling_binom <- glm(cbind(Killed, Initial -Killed) ~ I(1/Initial),
+                            data = dd, family = binomial)
+
 
 ## can't do REML selection ...
 scam_rf_mpd_binom <- scam(Killed ~ s(Initial, bs = "mpd"), data = ddx, family = binomial)
@@ -37,7 +41,7 @@ predfun <- function(m) {
     } else stop("can't do glmmTMB preds yet")
 }
 
-models <- ls(pattern="^(scam|gam)_rf")
+models <- ls(pattern="^(scam|gam|glm)_rf")
 mod_list <- mget(models) |> setNames(models)
 preds <- (mod_list
     |> map_dfr(predfun, .id = "model")
@@ -49,9 +53,13 @@ ggplot(preds, aes(Initial, prob)) +
     geom_line(aes(colour = model)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = model), colour = NA, alpha = 0.5) +
     expand_limits(y=0) +
-    geom_point(data=dd, aes(y = Killed/Initial, size = Killed)) +
+    geom_point(data=dd, aes(y = Killed/Initial, size = Killed), alpha = 0.5) +
     facet_wrap(~model)
 ## CIs are not monotonic??
 
 
+scam_pos <- match("package:scam", search())
+aa <- apropos("smooth.construct", where = TRUE)
+unname(aa[names(aa) == scam_pos]) |>
+    gsub(pattern = "[.]?smooth\\.(construct|spec)[.]?", replacement = "")
 

@@ -9,10 +9,10 @@ library(MASS)
 library(optimx)
 
 do.plots <- FALSE
-do.fits <- FALSE
+do.fits <- TRUE
 ## wd <- "C:/Documents and Settings/anura/Desktop/A callidryas research/Response Surface Experiment/"
 wd <- getwd()
-datfn <- "Response_surfaces_data_Gamboa_data.csv"
+datfn <- "McCoy_response_surfaces_Gamboa.csv"
 
 ##Import data
 ## 
@@ -47,6 +47,7 @@ tmpfun <- function(base,h,size="size",bound=TRUE) {
   }
   as.formula(paste("killed~dbinom(prob=",ffun,",size=initial)",sep=""))
 }
+
 sv <- list(c=.25,d=3,h=0.05) 
 startfun <- function(base,h) {
   c(sv,
@@ -58,6 +59,7 @@ startfun <- function(base,h) {
            ind=,prop=NULL,
            exp=,lin=list(hS=0)))
 }
+
 lfun <- function(base,h,minval=0.002) {
   c(c(c=minval,d=minval,h=minval),
     switch(base,
@@ -277,7 +279,7 @@ logistpred <- predict(rr2[["logist.ind.L-BFGS-B.size"]],newdata=predframe)
 powrickpred <- predict(rr2[["powricker.ind.L-BFGS-B.size"]],newdata=predframe)
 
 pframe2 <- cbind(predframe,logist=logistpred,powricker=powrickpred)
-pframe3 <- melt(pframe2,id.var=1:3)
+pframe3 <- reshape2::melt(pframe2,id.var=1:3)
 pframe3$g <- with(pframe3,interaction(sizeclass,variable))
 
 bugdat$sizeclass <- factor(bugdat$sizeclass)
@@ -293,7 +295,7 @@ logistpred <- predict(rr2[["logist.ind.L-BFGS-B.size"]],newdata=predframe)
 powrickpred <- predict(rr2[["powricker.ind.L-BFGS-B.size"]],newdata=predframe)
 
 pframe2 <- cbind(predframe,logist=logistpred,powricker=powrickpred)
-pframe3 <- melt(pframe2,id.var=1:2)
+pframe3 <- reshape2::melt(pframe2,id.var=1:2)
 pframe3$g <- with(pframe3,interaction(factor(initial),variable))
 
 bugdat$initial <- factor(bugdat$initial)
@@ -312,7 +314,9 @@ Lzfit <- res[["logist.ind.L-BFGS-B.size"]]
 ## do whatever you have to do to load bugdat here ....
 
 m <- "powricker"; h <- "ind"; s <- "size"; o <- "L-BFGS-B"
-powrick_ind_new <- mle2(tmpfun(m,h,s),start=as.list(coef(PRzfit)),data=bugdat,
+powrick_ind_new <- mle2(tmpfun(m,h,s),
+                        start=as.list(coef(PRzfit)),
+                        data=bugdat,
                    optimizer="optimx",method=o,control=list(maxit=1000),
                    lower=lfun(m,h,-0.1))  ## default lower bound: 0.002
 

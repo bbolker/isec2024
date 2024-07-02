@@ -23,3 +23,18 @@
 *  x GAM, scGAM, parametric
 
 regularization??
+
+## talk outline
+
+* semipar models
+* Levins
+* shape-constrained models
+* `gam`, `scam`
+* bases and constraints
+* test 
+
+scam smooth codes:
+*  m = monotonic
+*  p = p-spline
+*  i/d = increasing/decreasing
+*  cv = concavity

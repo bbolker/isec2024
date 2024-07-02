@@ -88,7 +88,7 @@ f <- function(parms) {
     y <- OBS(y)
     mu <- b0 + X %*% exp(b1)
     nll <- 0
-    nll <- nll - sum(dnorm(y, mu, exp(log_rSD), log = TRUE))
+    y %~% dnorm(mu, exp(log_rSD)))
     pen <- (exp(log_smSD) * (t(b1) %*% S %*% b1) + log_smSD)/2
     REPORT(mu)
     nll + pen

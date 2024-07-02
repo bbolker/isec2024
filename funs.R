@@ -12,4 +12,19 @@ expand_bern <- function(dd, response = "b1", size = 20) {
 }
 
 holling2_rtmb <- function(parms) {
+    getAll(tmbdat, parms)
+    prob <- a/(1+a*h*Initial)
+    logitprob <- 1/(1+exp(-prob))
+    Killed %~% dbinom(prob = prob, size = Initial)
+    REPORT(prob)
+    ADREPORT(logitprob)
 }
+
+parameters <- list(a = 1, h = 50)
+tmbdat <- dd
+obj <- MakeADFun(holling2_rtmb, parameters)
+obj$fn()
+res <- with(obj, nlminb(par, fn, gr), control = list(eval.max = 500))
+obj$report()$prob
+sdreport(obj)$value
+sdreport(obj)$sd

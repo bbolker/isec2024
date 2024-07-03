@@ -92,27 +92,29 @@ res <- list()
 resframe <- expand.grid(sizevar=slist,optmethod=olist,hmodel=hlist,model=mlist)
 
 if (do.fits) {
-for (m in mlist) {
-  for (h in hlist) {
-    for (o in olist) {
-      for (s in slist) {
-        cat(m,h,o,s,"\n")
-        res[[k]] <-  try(
+    for (m in mlist) {
+        for (h in hlist) {
+            for (o in olist) {
+                for (s in slist) {
+                    cat(m,h,o,s,"\n")
+                    res[[k]] <-  try(
                         mle2(tmpfun(m,h,s),start=startfun(m,h),data=bugdat,
                              optimizer="optimx",method=o,control=list(maxit=1000),
                              lower=lfun(m,h,0))
-                         )
-        k <- k+1
-      }
+                    )
+                    k <- k+1
+                }
+            }
+        }
     }
-  }
-}
-names(res) <- apply(as.matrix(resframe),1,function(x) paste(rev(x),collapse="."))
-save("resframe","res",file="waterbug_fits_1.RData")
-save("resframe","res",file="waterbug_fits_2.RData") ## ?? different answers -- diff optimx version?
-save("resframe","res",file="waterbug_fits_2z.RData") ## zero-boundary case
+    names(res) <- apply(as.matrix(resframe),1,function(x) paste(rev(x),collapse="."))
+    save("resframe","res",file="waterbug_fits_1.RData")
+    save("resframe","res",file="waterbug_fits_2.RData") ## ?? different answers -- diff optimx version?
+    save("resframe","res",file="waterbug_fits_2z.RData") ## zero-boundary case
 }
 ## load("waterbug_fits_1.RData")
+
+## what is this fit from?
 load("waterbug_fits_2z.RData")
 ## some failures
 badfit <-  sapply(res,class)=="try-error"

@@ -20,6 +20,9 @@ ddx <- expand_bern(dd, response = "Killed", size = "Initial")
 ##  p = p-spline
 ##  i/d = increasing/decreasing
 ##  cv = concavity
+## te = tensor
+## d = double
+## de = 'decreasing' (why not md?)
 
 ## linear fits
 scam_rf_mpd_gauss <- scam(Killed/Initial ~ s(Initial, bs = "mpd"), data = dd)
@@ -60,6 +63,5 @@ ggplot(preds, aes(Initial, prob)) +
 
 scam_pos <- match("package:scam", search())
 aa <- apropos("smooth.construct", where = TRUE)
-unname(aa[names(aa) == scam_pos]) |>
+scam_smooths <- unname(aa[names(aa) == scam_pos]) |>
     gsub(pattern = "[.]?smooth\\.(construct|spec)[.]?", replacement = "")
-

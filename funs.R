@@ -20,11 +20,11 @@ holling2_rtmb <- function(parms) {
     ADREPORT(logitprob)
 }
 
-parameters <- list(a = 1, h = 50)
-tmbdat <- dd
-obj <- MakeADFun(holling2_rtmb, parameters)
-obj$fn()
-res <- with(obj, nlminb(par, fn, gr), control = list(eval.max = 500))
-obj$report()$prob
-sdreport(obj)$value
-sdreport(obj)$sd
+## parameters <- list(a = 1, h = 50)
+## tmbdat <- dd
+## obj <- MakeADFun(holling2_rtmb, parameters)
+## obj$fn()
+## res <- with(obj, nlminb(par, fn, gr), control = list(eval.max = 500))
+## obj$report()$prob
+## sdreport(obj)$value
+## sdreport(obj)$sd

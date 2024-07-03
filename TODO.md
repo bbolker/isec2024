@@ -15,7 +15,13 @@
 
   are weights invariant under scaling (precision weights) or not (frequency weights)?
 
-##
+## waterbugs
+
+* what did we do originally?
+* functions for attack(size): Ricker, power-Ricker, logistic, hyperbolic, exponential,
+* functions for handling(size): exponential, linear, proportional, independent
+
+prob = 1/((1/a) + h*init_dens)
 
 * gam, scam, glmmTMB, RTMB, JAGS ?
 *  x simulated data, reedfrog, McCoy data
@@ -38,3 +44,5 @@ scam smooth codes:
 *  p = p-spline
 *  i/d = increasing/decreasing
 *  cv = concavity
+
+unimodal splines? (uniReg package)

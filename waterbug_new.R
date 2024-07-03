@@ -1,5 +1,13 @@
 library(tidyverse); theme_set(theme_bw())
-library(rayshader)
+library(plotly)
+library(bbmle)
+library(emdbook)
+library(mgcv)
+library(scam)
+
+source("funs.R")
+## rayshader is disappointing/frustrating
+## library(rayshader)
 
 datfn <- "McCoy_response_surfaces_Gamboa.csv"
 
@@ -23,9 +31,6 @@ gg2 <- ggplot(x, aes(x = initial, y = size)) +
     geom_point(aes(colour = killed/initial), size = 4)
     ## scale_colour_viridis_c()
 print(gg2)
-plot_gg(gg1)
-
-plot_gg(gg2)
 
 marker <- list(color = ~prop,
                colorscale = c('#FFE1A1', '#683531'), 
@@ -43,11 +48,6 @@ seg_data <- function(x, zvar) {
 }
 
 ## https://stackoverflow.com/questions/72281954/keep-other-columns-when-doing-group-by-summarise-with-dplyr
-seg_data(x, killed)
-
-p <- plot_ly(xx, x= ~initial, y = ~size, z = ~killed, marker = marker) |>
-    add_markers() 
-
 
 p2 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
     |> add_markers(data = x, marker = marker)
@@ -57,15 +57,45 @@ p2 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
 )
 print(p2)
 
-plot_ly(data = x, x = ~size, y = ~initial) |> add_markers() |>
-    layout(yaxis = list(rangemode = "tozero"),
-              xaxis = list(rangemode = "tozero"))
-    
-## segments?
-
 ## https://www.datanovia.com/en/blog/how-to-create-a-ggplot-like-3d-scatter-plot-using-plotly/
 ## https://community.plotly.com/t/droplines-from-points-in-3d-scatterplot/4113/10
 
+## power-ricker or  ricker attack rate, proportional handling time
+fit1 <- mle2(killed ~ dbinom(prob = 1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
+                             size = initial),
+             start = list(c=1,d=20,h=20),
+             control = list(parscale= c(c=1,d=20,h=20)),
+             data = x,
+             method = "Nelder-Mead")
+
+long_fmt <- function(cc, nm = c("size", "initial", "prop")) {
+    tibble(x = rep(cc$x, ncol(cc$z)),
+           y = rep(cc$y, each = nrow(cc$z)),
+           z = c(cc$z)) |>
+        setNames(nm)
+}
+    
+cc <- curve3d(1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
+              xlim = c(0, 60),
+              ylim = c(0, 100),
+##            1/(1/(c*size/d*exp(1-size/d)) + h*size*initial)
+        data = as.list(coef(fit1)),
+        varnames = c("size", "initial"),
+        sys3d = "image")
+
+p2 |> add_trace(type =  "mesh3d", data = long_fmt(cc), opacity = 0.4)
+
+fit2 <- gam(cbind(killed, initial-killed) ~ te(size, initial),
+            data = x, family = binomial)
+
+gam_pred <- expand.grid(size = 0:60, initial = 0:100)
+gam_pred$prop <- predict(fit2, newdata = gam_pred, type = "response")
+
+p2 |> add_trace(type =  "mesh3d", data = gam_pred, opacity = 0.4)
+
+## unimodal??
+
+## 
 ## for (i in 1:N) {
 ##     ## ar[i] <- cvec[block[i]]*pow(size[i]/d,gamma)*exp(1-size[i]/d)
 ##     ar[i] <- cvec[block[i]]*size[i]/d*exp(1-size[i]/d)

@@ -31,15 +31,40 @@ marker <- list(color = ~prop,
                colorscale = c('#FFE1A1', '#683531'), 
                showscale = TRUE)
 
-p <- plot_ly(x, x= ~initial, y = ~size, z = ~killed, marker = marker) |>
-    add_markers()
+seg_data <- function(x, zvar) {
+    ## why do we need enquo here??
+    zvar <- enquo(zvar)
+    xx <- (x
+        |> mutate(.id = seq(nrow(x)))
+        |> reframe(!!zvar := c(!!zvar, 0), across(-!!zvar), .by = .id)
+        |> plotly::group2NA(".id")
+    )
+    return(xx)
+}
 
-p2 <- plot_ly(x, x= ~initial, y = ~size, z = ~prop, marker = marker) |>
-    add_markers()
+## https://stackoverflow.com/questions/72281954/keep-other-columns-when-doing-group-by-summarise-with-dplyr
+seg_data(x, killed)
 
+p <- plot_ly(xx, x= ~initial, y = ~size, z = ~killed, marker = marker) |>
+    add_markers() 
+
+
+p2 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
+    |> add_markers(data = x, marker = marker)
+    |> add_paths(data = seg_data(x, prop))
+    |> layout(scene = list(yaxis = list(rangemode = "tozero"),
+              xaxis = list(rangemode = "tozero")))
+)
+print(p2)
+
+plot_ly(data = x, x = ~size, y = ~initial) |> add_markers() |>
+    layout(yaxis = list(rangemode = "tozero"),
+              xaxis = list(rangemode = "tozero"))
+    
 ## segments?
 
 ## https://www.datanovia.com/en/blog/how-to-create-a-ggplot-like-3d-scatter-plot-using-plotly/
+## https://community.plotly.com/t/droplines-from-points-in-3d-scatterplot/4113/10
 
 ## for (i in 1:N) {
 ##     ## ar[i] <- cvec[block[i]]*pow(size[i]/d,gamma)*exp(1-size[i]/d)

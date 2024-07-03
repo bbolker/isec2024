@@ -2,5 +2,11 @@
 * Can we include print statements?
 * Does matrix/vector indexing work? (Haven't tried)
 * Why `nlminb` ?
-* make `MakeADFun` less noisy? (`silent`)
 * predict with new data?
+* fit models with new data (other than with a closure)?
+* watch out for internal state (when in doubt, rebuild objects)
+
+* try out mvgauss with matrices
+* try out mapping?
+* make `MakeADFun` less noisy? (`silent`)
+

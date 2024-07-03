@@ -37,6 +37,11 @@ regularization??
 * shape-constrained models
 * `gam`, `scam`
 * bases and constraints
+
+* Quinn and Deriso Table 3.2/p. 107 (search "Ricker" or "Table 3.2"):
+https://books.google.ca/books?id=5FVBj8jnh6sC&printsec=frontcover&dq=quinn+deriso+quantitative+fisheries&hl=en&newbks=1&newbks_redir=0&sa=X&redir_esc=y#v=onepage&q=Ricker&f=false
+
+* list of options?
 * test 
 
 scam smooth codes:

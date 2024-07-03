@@ -112,7 +112,15 @@ parameters <- list(
 ## not currently using p.ident ...
 tmbdat_mpd1 <- c(as.list(dd), list(p.ident = sm1$"p.ident", S = sm1$S[[1]], X = sm1$X))
 
-## dmvnorm with rank-deficient covariance matrix
+## dmvnorm with rank-deficient covariance matrix?
+
+## translate from
+
+## lambda = 1/sigma_sm^2
+## MVgauss NLL = (1/2) (n*log(2pi) + log(det(Sigma)) + bT Sigma^{-1} b)
+## Sigma = sd^2 S^{-1}
+## log(det(Sigma)) = 2*logsd - log(det(S))
+## MVNLL = C + logsd + 1/sd^2 (bT S b)
 
 mk_fun <- function(data= tmbdat_mpd1, parms = parameters, random = "b1", silent = TRUE, ...) {
     ## can't use %~% format if we want to add a penalty
@@ -122,11 +130,6 @@ mk_fun <- function(data= tmbdat_mpd1, parms = parameters, random = "b1", silent 
         b_pos[p.ident] <- exp(b1)
         mu <- b0 + X %*% b_pos
         nll <- -1*sum(dnorm(y, mu, exp(log_rSD), log = TRUE))
-        ## lambda = 1/sigma_sm^2
-        ## MVgauss NLL = (1/2) (n*log(2pi) + log(det(Sigma)) + bT Sigma^{-1} b)
-        ## Sigma = sd^2 S^{-1}
-        ## log(det(Sigma)) = 2*logsd - log(det(S))
-        ## MVNLL = C + logsd + 1/sd^2 (bT S b)
         pen <- (exp(-2*log_smSD) * (t(b_pos) %*% S %*% b_pos) + 2*log_smSD)/2
         REPORT(mu)
         ADREPORT(mu)
@@ -159,9 +162,4 @@ er$values <- zapsmall(er$values)
 rS <- crossprod(sqrt(sqrt(er$values))*t(er$vectors))
 b1 <- parameters$b1
 stopifnot(all.equal(sum((rS %*% b1)^2), c(t(b1) %*% sm1$S[[1]] %*% b1)))
-
-p2 <- parameters
-p2$log_smSD <- p2$log_smSD+0.01
-f(parameters)
-f(p2)
 

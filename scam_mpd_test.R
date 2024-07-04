@@ -8,6 +8,7 @@ library(scam)
 library(Matrix)
 library(RTMB)
 library(cowplot)
+source("funs.R")
 
 ## simulated example
 set.seed(101)
@@ -29,6 +30,8 @@ m_scam_tp_gcv <- scam(y ~ s(x, bs = "tp"), data = dd)
 m_glmmTMB_mpd_reml <- glmmTMB(y ~ s(x, bs = "mpd"), data = dd, REML = TRUE)
 m_glmmTMB_tp_reml <- glmmTMB(y ~ s(x, bs = "tp"), data = dd, REML = TRUE)
 
+m_RTMB_mpd_ml <- fit_mpd_fun(data = dd)
+
 nm0 <- ls(pattern = "m_.*_.*_.*")
 nm <- nm0 |> gsub(pattern = "^m_", replacement = "")
 
@@ -43,6 +46,7 @@ legend("topleft", legend = setdiff(nm, focal_col), col = colvec, lty = 1:8)
 ## gam_tp_gcv = scam_tp_gcv
 ## gam_tp_reml = glmmTMB_tp_reml
 ## glmmTMB_mpd_reml is just bogus
+## RTMB_mpd_ml is quite close
 
 ## note, REML appears to be much closer to GCV for 'ps' basis (instead of 'tp')
 
@@ -114,38 +118,19 @@ tmbdat_mpd1 <- c(as.list(dd), list(p.ident = sm1$"p.ident", S = sm1$S[[1]], X = 
 
 ## dmvnorm with rank-deficient covariance matrix?
 
-## translate from
-
-## lambda = 1/sigma_sm^2
-## MVgauss NLL = (1/2) (n*log(2pi) + log(det(Sigma)) + bT Sigma^{-1} b)
-## Sigma = sd^2 S^{-1}
-## log(det(Sigma)) = 2*logsd - log(det(S))
-## MVNLL = C + logsd + 1/sd^2 (bT S b)
-
-mk_fun <- function(data= tmbdat_mpd1, parms = parameters, random = "b1", silent = TRUE, ...) {
-    ## can't use %~% format if we want to add a penalty
-    f <- function(parms) {
-        getAll(data, parms)
-        b_pos <- b1
-        b_pos[p.ident] <- exp(b1)
-        mu <- b0 + X %*% b_pos
-        nll <- -1*sum(dnorm(y, mu, exp(log_rSD), log = TRUE))
-        pen <- (exp(-2*log_smSD) * (t(b_pos) %*% S %*% b_pos) + 2*log_smSD)/2
-        REPORT(mu)
-        ADREPORT(mu)
-        nll + pen
-    }
-    MakeADFun(f, parms, random=random, silent = silent, ...)
-}
-
-obj_mpd1 <- mk_fun()
+obj_mpd1 <- mk_mpd_fun(data = tmbdat_mpd1, parms = parameters, random = "b1")
 res_mpd1 <- with(obj_mpd1, nlminb(par, fn, gr))
 
 
 tmbdat_tp1 <- c(as.list(dd), list(p.ident = rep(FALSE, ncol(sm0$X)),
                                   S = sm0$S[[1]], X = sm0$X))
 
-obj_tp1 <- mk_fun(data = tmbdat_tp1)
+set.seed(101)
+parms <- list(b0 = 0,
+              b1 = rnorm(length(sm1$p.ident)),
+              log_smSD = 0,
+              log_rSD = 0)
+obj_tp1 <- mk_mpd_fun(data = tmbdat_tp1, parms = parms)
 res_tp1 <- with(obj_tp1, nlminb(par, fn, gr))
 
 mu <- obj_mpd1$report()$mu

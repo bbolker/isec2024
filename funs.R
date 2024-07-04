@@ -41,9 +41,18 @@ mk_mpd_fun <- function(data, parms, random = "b1", silent = TRUE,
     MakeADFun(f, parms, random=random, silent = silent, ...)
 }
 
-fit_mpd_fun <- function(data, response = "y", form = s(x, bs = "mpd"), size = numeric(0), parms = NULL,
-                        family = "gaussian", random = "b1", silent = TRUE, ...) {
-    sm1 <- smoothCon(form, data = data, absorb.cons = TRUE)[[1]]
+fit_mpd_fun <- function(data, response = "y",
+                        xvar = "x",
+                        form = s(x, bs = "mpd"), 
+                        size = numeric(0),
+                        parms = NULL,
+                        smoothdata = data,
+                        predict = FALSE,
+                        family = "gaussian", random = "b1", silent = TRUE,
+                        ...) {
+    form$term <- xvar
+    ## if predicting, make sure to set up smooth with old data
+    sm1 <- smoothCon(form, data = smoothdata, absorb.cons = TRUE)[[1]]
     parms <- parms %||% list(
                             b0 = 0,
                             b1 = rep(0, ncol(sm1$X)),
@@ -58,11 +67,19 @@ fit_mpd_fun <- function(data, response = "y", form = s(x, bs = "mpd"), size = nu
                       silent = silent)
     ## p0 <- parms[names(parms) != "b1"]
     ## optim(par = p0, fn = obj$fn, control = list(maxit = 2000))
+    if (predict) {
+        ## shouldn't need to map() b if random = NULL ?
+        obj$fn(unlist(parms))
+        sdr <- sdreport(obj)
+        return(with(sdr,
+                    data.frame(nm = names(value), value, sd)))
+    }
     res <- with(obj, nlminb(par, fn, gr))
     ret <- list(fit = res, obj = obj, mu = obj$report()$mu, eta = obj$report()$eta)
     class(ret) <- c("myRTMB", "list")
     return(ret)
 }
+
 
 predict.myRTMB <- function(x, type = "link", ...)  {
     switch(type,
@@ -70,20 +87,50 @@ predict.myRTMB <- function(x, type = "link", ...)  {
            response = x$mu)
 }
 
-holling2_rtmb <- function(parms) {
-    getAll(tmbdat, parms)
-    prob <- a/(1+a*h*Initial)
-    logitprob <- 1/(1+exp(-prob))
-    Killed %~% dbinom(prob = prob, size = Initial)
-    REPORT(prob)
-    ADREPORT(logitprob)
+mk_holling2_rtmb_fun <- function(data) {
+    f <- function(parms) {
+        getAll(data, parms)
+        a <- exp(loga)
+        prob <- a/(1+a*exp(logh)*Initial)
+        logitprob <- qlogis(prob) ## for CIs on logit scale
+        nll <- -1*sum(dbinom(Killed, prob = prob, size = Initial, log = TRUE))
+        REPORT(prob)
+        ADREPORT(logitprob)
+        return(nll)
+    }
+    return(f)
 }
 
-## parameters <- list(a = 1, h = 50)
-## tmbdat <- dd
-## obj <- MakeADFun(holling2_rtmb, parameters)
-## obj$fn()
-## res <- with(obj, nlminb(par, fn, gr), control = list(eval.max = 500))
-## obj$report()$prob
-## sdreport(obj)$value
-## sdreport(obj)$sd
+fit_RTMB_holling2 <- function(data, parms = list(loga=log(0.5), logh = log(0.01))) {
+    obj <- MakeADFun(mk_holling2_rtmb_fun(data), parameters = parms,
+                     silent = TRUE)
+    fit <- with(obj, nlminb(par, fn, gr))
+    sdr <- sdreport(obj)
+    return(list(obj = obj, fit = fit, pred = data.frame(Initial = data$Initial,
+                                                        prob = obj$report()$prob,
+                                                        logitprob = sdr$value,
+                                                        logitprob_sd = sdr$sd)))
+}
+
+pred_RTMB_holling2 <- function(data, newdata, parms, response = "Killed") {
+    newdata[[response]] <- NA_integer_
+    n_new <- nrow(newdata)
+    data <- rbind(newdata, data)
+    ## don't think I have to worry about mapping b parameters here ...
+    ## no random coef here
+    newobj <- MakeADFun(mk_holling2_rtmb_fun(data), parameters = as.list(parms), silent = TRUE)
+    newobj$fn(parms)
+    sdr <- sdreport(newobj)    
+    pframe <- with(sdr,
+                   data.frame(Initial = data$Initial,
+                              prob = newobj$report()$prob,
+                              logitprob = value,
+                              logitprob_sd = sd,
+                              lwr = plogis(value-2*sd),
+                              upr = plogis(value+2*sd))
+                   )
+    pframe <- pframe[seq(n_new), ]
+    return(pframe)
+}
+    
+

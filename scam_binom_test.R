@@ -61,10 +61,6 @@ m_binom_scam_wts <- scam(y1/20 ~ s(x, bs = "tp"), weights = rep(20, nrow(dd)),
 m_binom_glmmTMB <- glmmTMB(cbind(y1, 20-y1) ~ s(x, bs = "tp"), family = binomial, data = dd,
                            REML = TRUE)
 
-m_binom_RTMB <- fit_mpd_fun(dd, size = rep(20, nrow(dd)), family = "binomial", response = "y1",
-                            random = "b1",
-                            parms = list(b0 = 0, log_smSD = 3, b1 = rep(0, 9)))
-
 dd_expand <- expand_bern(dd)
 m_binom_scam_expand <- scam(y1 ~ s(x, bs = "tp"),
                             family = binomial, data = dd_expand)
@@ -89,3 +85,30 @@ legend("topright", lty = 1, lwd = 2,
        )
 
 ## note, RTMB is mpd, not tp; FIXME ...
+
+m_binom_RTMB_mpd <- fit_mpd_fun(dd, size = rep(20, nrow(dd)), family = "binomial", response = "y1",
+                            random = "b1",
+                            parms = list(b0 = 0, log_smSD = 3, b1 = rep(0, 9)))
+m_binom_scam_expand_mpd <- scam(y1 ~ s(x, bs = "mpd"),
+                            family = binomial, data = dd_expand)
+
+nm0 <- ls(pattern = "m_.*_mpd")
+nm <- nm0 |> gsub(pattern = "^m_", replacement = "")
+
+## RTMB silently ignores newdata. no-op for the rest, only relevant for expanded data
+predmat_mpd <- (mget(nm0)
+    |> lapply(predict, newdata = dd)
+    |> as.data.frame()
+    |> setNames(nm)
+)
+
+matplot(dd$x, predmat_mpd, lty = 1:2, type = "l", col = colvec, ylim = c(-25,25))
+lines(dd$x, qlogis(dd$p), lwd = 2)
+## squeeze obs probs in slightly so we can look at logit scale
+points(dd$x, qlogis((dd$y1+0.25)/20.5))
+legend("topright", lty = 1, lwd = 2,
+       col = colvec,
+       legend = gsub("_", "/", gsub("binom_", "", nm))
+       )
+
+## close, not identical. RTMB actually looks slightly more sensible (ML vs GCV difference?)

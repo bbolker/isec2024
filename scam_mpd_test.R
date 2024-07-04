@@ -120,8 +120,6 @@ tmbdat_mpd1 <- c(as.list(dd), list(p.ident = sm1$"p.ident", S = sm1$S[[1]], X = 
 
 obj_mpd1 <- mk_mpd_fun(data = tmbdat_mpd1, parms = parameters, random = "b1")
 res_mpd1 <- with(obj_mpd1, nlminb(par, fn, gr))
-
-
 tmbdat_tp1 <- c(as.list(dd), list(p.ident = rep(FALSE, ncol(sm0$X)),
                                   S = sm0$S[[1]], X = sm0$X))
 
@@ -134,7 +132,7 @@ obj_tp1 <- mk_mpd_fun(data = tmbdat_tp1, parms = parms)
 res_tp1 <- with(obj_tp1, nlminb(par, fn, gr))
 
 mu <- obj_mpd1$report()$mu
-mu_sd <- sdreport(obj_mpd1)$sd
+mu_sd <- sdreport(obj_mpd1)$sd[seq_along(mu)]
 plot(dd$x, obj_mpd1$report()$mu, type = "l")
 matlines(dd$x, cbind(mu-2*mu_sd, mu + 2*mu_sd), lty = 2, col = 1)
 points(dd$x, dd$y)

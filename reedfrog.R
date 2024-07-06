@@ -9,29 +9,35 @@ library(RTMB)
 ## what for tidy predictions? ggpredict, marginaleffects, emmeans?
 source("funs.R")
 
-## 1. simulate data from Holling type-2, type-3:
+## GOAL: fit Reed frog predation data, with CIs, using Holling type 2,
+##  unrestricted GAM, shape-constrained GAM (both scam and RTMB), ...
+##
+
+## tests? parametric bootstrap, AIC, etc. ?
+## (edf for RTMB fits?)
+
 set.seed(101)
 
 data("ReedfrogFuncresp", package = "emdbook")
 dd <- ReedfrogFuncresp
 ddx <- expand_bern(dd, response = "Killed", size = "Initial")
-## apropos("smooth.construct")
-## ?smooth.construct.miso.smooth.spec
-## scam smooth codes:
-##  m = monotonic
-##  p = p-spline
-##  i/d = increasing/decreasing
-##  cv = concavity
-## te = tensor
-## d = double
-## de = 'decreasing' (why not md?)
+
+ddp0 <- data.frame(Initial = 1:100)
+## works for scam/gam fits
+pfun <- function(m) (c(marginaleffects::predictions(m, newdata = ddp0))
+    |> as.data.frame()
+    |> as_tibble()
+    |> dplyr::select(prob = estimate, lwr = conf.low, upr = conf.high)
+    |> mutate(Initial = ddp0$Initial, .before = 1)
+)
 
 ## unconstrained GAM fit
-gam_rf_tp_binom <- gam(cbind(Killed, Initial -Killed) ~ s(Initial, bs = "tp",
+m_gam_tp <- gam(cbind(Killed, Initial -Killed) ~ s(Initial, bs = "tp",
                                                           k = 8), data = dd,
-
                        family = binomial)
+preds_gam_tp <- pfun(m_gam_tp)
 
+## This doesn't work -- don't know if it's a thinko or just numerical nastiness ...
 ## holling  a*x/(1+a*h*x)
 ## initial slope = a; asymptote = 1/h ~ 0.5, 100
 ## holling prob = a/(1+a*h*x)
@@ -42,54 +48,79 @@ gam_rf_tp_binom <- gam(cbind(Killed, Initial -Killed) ~ s(Initial, bs = "tp",
 
 ## 1/prob ~ b0 + b1/x
 ## prob = 1/(b0 + b1/x) = (1/b0)/(1/(1/b0) + (1/b0)*b1
-
-glm_rf_holling_binom <- glm(cbind(Killed, Initial -Killed) ~ I(1/Initial), data = dd,
-                            family = binomial(link = "inverse"),
-                            start = c(2, 0.02))
-## coef(glm_rf_holling_binom)  ## bogus ...
+if (FALSE) {
+    ## don't want this lying around messing things up
+    m_glm_holling <- glm(cbind(Killed, Initial -Killed) ~ I(1/Initial), data = dd,
+                         family = binomial(link = "inverse"),
+                         start = c(2, 0.02))
+}
+## coef(glm_holling)  ## bogus ...
 ## negative values for b1 ???
-## plot(predict(glm_rf_holling_binom, newdata = data.frame(Initial = 1:100), type = "response"))
+## plot(predict(glm_holling, newdata = data.frame(Initial = 1:100), type = "response"))
 
 
 ## fit Holling type 2 with mle2
-mle2_rf_holling_binom <- bbmle::mle2(Killed ~ dbinom(prob = exp(loga)/(1+exp(loga)*exp(logh)*Initial),
+m_mle2_holling <- bbmle::mle2(Killed ~ dbinom(prob = exp(loga)/(1+exp(loga)*exp(logh)*Initial),
                                                      size = Initial),
                                      start = list(loga = log(0.5), logh = log(0.01)),
                                      data = dd)
-exp(coef(mle2_rf_holling_binom))
-vcov(mle2_rf_holling_binom)
+
+## predict number killed, divide by value
+p0 <- predict(m_mle2_holling, newdata = list(Initial = 1:100))/(1:100)
+rpars <- MASS::mvrnorm(1000, mu = coef(m_mle2_holling), Sigma = vcov(m_mle2_holling))
+n_initial <- 1:100
+preds <- apply(rpars, 1,
+               function(x) { a <- exp(x[1]); h <- exp(x[2]); a/(1+a*h*n_initial)})
+matplot(preds, type = "l", col = adjustcolor("black", alpha = 0.3), lty = 1)
+ci <- t(apply(preds, 1, quantile, c(0.025, 0.975)))
+
+
+preds_mle2_holling <- data.frame(Initial = 1:100, prob = p0, lwr = ci[,1], upr = ci[,2])
 
 ## fit Holling type 2 with RTMB
-RTMB_rf_holling_binom <- fit_RTMB_holling2(dd)
-pred <- pred_RTMB_holling2(dd, data.frame(Initial = 1:100), RTMB_rf_holling_binom$fit$par)
+m_RTMB_holling <- fit_RTMB_holling2(dd)
+preds_RTMB_holling <- predict_RTMB_holling2(dd, data.frame(Initial = 1:100),
+                                         m_RTMB_holling$fit$par) |>
+    dplyr::select(Initial, prob, lwr, upr)
 
 ## fit SCAM with RTMB (Laplace approx doesn't work, need random = NULL)
-RTMB_rf_scam_binom <- fit_mpd_fun(data = dd, response = "Killed", size = dd$Initial, xvar = "Initial", family = "binomial", random = NULL)
+m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
+                               size = dd$Initial, xvar = "Initial", family = "binomial", random = NULL)
 
-fit_mpd_fun(data = dd, response = "Killed", size = dd$Initial, xvar = "Initial", family = "binomial", random = NULL,
-            smoothdata = dd, predict = TRUE,
-            parms = with(RTMB_rf_scam_binom$obj$env, parList(last.par.best)))
 
-scam_rf_mpd_binom <- scam(Killed ~ s(Initial, bs = "mpd"), data = ddx, family = binomial)
-
-predictions(scam_rf_mpd_binom, newdata = data.frame(Initial = 1:100)) |> as_tibble()
-
-predfun <- function(m) {
-    nd <- data.frame(Initial = 1:100)
-    if (!inherits(m, "glmmTMB")) {
-        c(marginaleffects::predictions(m, newdata = nd) |> as_tibble())
-    } else stop("can't do glmmTMB preds yet")
-}
-
-models <- ls(pattern="^(scam|gam|glm)_rf")
-mod_list <- mget(models) |> setNames(models)
-preds <- (mod_list
-    |> map_dfr(predfun, .id = "model")
-    |> select(model, Initial, prob = estimate, lwr = conf.low, upr = conf.high)
+m_RTMB_mpd$fit
+ddp <- as.list(dd)
+## don't go outside original range, technical issues with outer.ok in splineDesign ...
+ddp$Initial <- c(dd$Initial, 5:100)
+ddp$Killed <- c(dd$Killed, rep(NA_integer_, 96))
+ddp <- as.data.frame(ddp) ## MUST have nrow()
+k <- data.frame(Initial = smoothCon(s(Initial, bs="mpd"), data = dd, absorb.cons = TRUE)[[1]]$knots)
+preds0 <- fit_mpd_fun(data = ddp, response = "Killed",
+            size = ddp$Initial, xvar = "Initial", family = "binomial", random = NULL,
+            knots = k, predict = TRUE,
+            parms = with(m_RTMB_mpd$obj$env, parList(last.par.best)))
+qq <- qnorm(0.975)
+preds_RTMB_mpd <- (preds0
+    |> filter(nm == "eta")
+    |> slice_tail(n = 96)
+    |> transmute(Initial = 5:100, prob = plogis(value), lwr = plogis(value-qq*sd),
+                 upr = plogis(value+qq*sd))
 )
-    
 
-ggplot(preds, aes(Initial, prob)) +
+m_scam_mpd <- scam(Killed ~ s(Initial, bs = "mpd"), data = ddx, family = binomial)
+
+preds_scam_mpd <- pfun(m_scam_mpd)
+(all_models <- ls(pattern="^m_"))
+(all_preds <- ls(pattern="^preds_"))
+
+## NOT 'preds_' (don't pollut
+pred_frame <- (mget(all_preds)
+    |> setNames(all_preds)
+    |> bind_rows(.id = "model")
+    |> mutate(across(model, ~gsub("preds_", "", .)))
+)
+
+ggplot(pred_frame, aes(Initial, prob)) +
     geom_line(aes(colour = model)) +
     geom_ribbon(aes(ymin = lwr, ymax = upr, fill = model), colour = NA, alpha = 0.5) +
     expand_limits(y=0) +
@@ -98,7 +129,3 @@ ggplot(preds, aes(Initial, prob)) +
 ## CIs are not monotonic??
 
 
-scam_pos <- match("package:scam", search())
-aa <- apropos("smooth.construct", where = TRUE)
-scam_smooths <- unname(aa[names(aa) == scam_pos]) |>
-    gsub(pattern = "[.]?smooth\\.(construct|spec)[.]?", replacement = "")

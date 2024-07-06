@@ -20,11 +20,19 @@ mk_mpd_fun <- function(data, parms, random = "b1", silent = TRUE,
         b_pos <- b1
         b_pos[p.ident] <- exp(b1)
         eta <- b0 + X %*% b_pos
-        nll <- switch(family,
-                      gaussian = { mu <- eta; -1*sum(dnorm(y, mu, exp(log_rSD), log = TRUE))},
-                      binomial = { mu <- plogis(eta);
-                          -1*sum(dbinom_robust(y, logit_p = eta, size = size, log = TRUE)) },
-                      stop("unimplemented family"))
+        nll <- 0
+        mu <- switch(family,
+                     gaussian = eta,
+                     binomial = plogis(eta),
+                     stop("unimplemented family"))
+        for (i in 1:length(y)) {
+            if (!is.na(y[i])) {
+                nll <- nll  + switch(family,
+                                     gaussian = -1*dnorm(y[i], mu[i], exp(log_rSD), log = TRUE),
+                                     binomial = -1*dbinom_robust(y[i], logit_p = eta[i],
+                                                                 size = size[i], log = TRUE))
+            }
+        }
         ## translate from
         ## lambda = 1/sigma_sm^2
         ## MVgauss NLL = (1/2) (n*log(2pi) + log(det(Sigma)) + bT Sigma^{-1} b)
@@ -46,13 +54,13 @@ fit_mpd_fun <- function(data, response = "y",
                         form = s(x, bs = "mpd"), 
                         size = numeric(0),
                         parms = NULL,
-                        smoothdata = data,
+                        knots = NULL,
                         predict = FALSE,
                         family = "gaussian", random = "b1", silent = TRUE,
                         ...) {
     form$term <- xvar
-    ## if predicting, make sure to set up smooth with old data
-    sm1 <- smoothCon(form, data = smoothdata, absorb.cons = TRUE)[[1]]
+    ## if predicting, make sure to pass old knots so basis is constructed properly
+    sm1 <- smoothCon(form, data = data, absorb.cons = TRUE, knots = knots)[[1]]
     parms <- parms %||% list(
                             b0 = 0,
                             b1 = rep(0, ncol(sm1$X)),
@@ -74,7 +82,7 @@ fit_mpd_fun <- function(data, response = "y",
         return(with(sdr,
                     data.frame(nm = names(value), value, sd)))
     }
-    res <- with(obj, nlminb(par, fn, gr))
+    res <- with(obj, nlminb(par, fn, gr, control = list(eval.max = 1000)))
     ret <- list(fit = res, obj = obj, mu = obj$report()$mu, eta = obj$report()$eta)
     class(ret) <- c("myRTMB", "list")
     return(ret)
@@ -112,7 +120,8 @@ fit_RTMB_holling2 <- function(data, parms = list(loga=log(0.5), logh = log(0.01)
                                                         logitprob_sd = sdr$sd)))
 }
 
-pred_RTMB_holling2 <- function(data, newdata, parms, response = "Killed") {
+predict_RTMB_holling2 <- function(data, newdata, parms, response = "Killed",
+                               qq = qnorm(0.975)) {
     newdata[[response]] <- NA_integer_
     n_new <- nrow(newdata)
     data <- rbind(newdata, data)
@@ -126,11 +135,28 @@ pred_RTMB_holling2 <- function(data, newdata, parms, response = "Killed") {
                               prob = newobj$report()$prob,
                               logitprob = value,
                               logitprob_sd = sd,
-                              lwr = plogis(value-2*sd),
-                              upr = plogis(value+2*sd))
+                              lwr = plogis(value-qq*sd),
+                              upr = plogis(value+qq*sd))
                    )
     pframe <- pframe[seq(n_new), ]
     return(pframe)
 }
     
 
+##
+## apropos("smooth.construct")
+## ?smooth.construct.miso.smooth.spec
+## scam smooth codes:
+##  m = monotonic
+##  p = p-spline
+##  i/d = increasing/decreasing
+##  cv = concavity
+## te = tensor
+## d = double
+## de = 'decreasing' (why not md?)
+
+library(scam)
+scam_pos <- match("package:scam", search())
+aa <- apropos("smooth.construct", where = TRUE)
+scam_smooths <- unname(aa[names(aa) == scam_pos]) |>
+    gsub(pattern = "[.]?smooth\\.(construct|spec)[.]?", replacement = "")

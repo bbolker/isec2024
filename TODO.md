@@ -1,10 +1,23 @@
 ## to do
 
-* simulations
-* play with reed frog data from emdbook
-* RTMB?? mixed models??
-* dig out McCoy et al data
-* simulation-based examples
+### reed frogs
+
+* RTMB_mpd: penalization too strong? Is this (RE)ML vs GCV?
+ * compare `m_scam_mpd[c("trA", "aic", "sp", "edf")]`
+* get lambda, ecdf from RTMB_mpd, scam_mpd
+* compare AIC values?
+* ?? what does holling type 2 look like ??
+
+
+## waterbugs
+
+* fit!
+* scam, RTMB (semimech)
+
+## simulations?
+
+## other
+
 * hypothesis tests (goodness-of-fit/AIC, monotonicity, concavity, etc.)
 * dynamical sensitivity???
 

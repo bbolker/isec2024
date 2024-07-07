@@ -1,6 +1,8 @@
 ## to do
 
-### reed frogs
+##  simulations
+
+## reed frogs
 
 * RTMB_mpd: penalization too strong? Is this (RE)ML vs GCV?
  * compare `m_scam_mpd[c("trA", "aic", "sp", "edf")]`

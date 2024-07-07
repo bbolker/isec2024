@@ -2,6 +2,7 @@
 remotes::install_github("bbolker/reformulas")
 remotes::install_github("glmmTMB/glmmTMB/glmmTMB")
 
+
 library(glmmTMB)
 library(mgcv)
 library(scam)
@@ -9,6 +10,8 @@ library(Matrix)
 library(RTMB)
 library(cowplot)
 source("funs.R")
+
+if (!interactive()) pdf("scam_mpd_test.pdf")
 
 ## simulated example
 set.seed(101)
@@ -41,7 +44,9 @@ colnames(predmat) <- nm
 focal_col <- "scam_mpd_gcv"
 
 predmat_diff <- sweep(predmat[,nm != focal_col], 1, FUN = "-", predmat[, focal_col])
-matplot(predmat_diff, col = colvec, type = "l")
+matplot(predmat_diff, col = colvec, type = "l",
+        main = sprintf("differences from %s\n(Gaussian ex.)", focal_col))
+
 legend("topleft", legend = setdiff(nm, focal_col), col = colvec, lty = 1:8)
 ## gam_tp_gcv = scam_tp_gcv
 ## gam_tp_reml = glmmTMB_tp_reml
@@ -146,3 +151,4 @@ rS <- crossprod(sqrt(sqrt(er$values))*t(er$vectors))
 b1 <- parameters$b1
 stopifnot(all.equal(sum((rS %*% b1)^2), c(t(b1) %*% sm1$S[[1]] %*% b1)))
 
+if (!interactive()) dev.off()

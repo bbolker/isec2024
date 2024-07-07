@@ -11,7 +11,12 @@ expand_bern <- function(dd, response = "y1", size = 20) {
     return(ret)
 }
 
-## basic
+#' @param data
+#' @param parms parameters
+#' @param random smooth variable(s)
+#' @param silent for MakeADFun
+#' @param family GLM family
+#' @param ... passed to MakeADFun
 mk_mpd_fun <- function(data, parms, random = "b1", silent = TRUE,
                        family = "gaussian", ...) {
     ## can't use %~% format if we want to add a penalty
@@ -49,14 +54,28 @@ mk_mpd_fun <- function(data, parms, random = "b1", silent = TRUE,
     MakeADFun(f, parms, random=random, silent = silent, ...)
 }
 
-fit_mpd_fun <- function(data, response = "y",
+#' @param data data frame including response variable ('y' by default) and predictor/x variable ('x')
+#' @param response name of response variable/data column
+#' @param xvar name of predictor variable/data column
+#' @param form smooth term (not including ~)
+#' @param size denominator/number of trials term for binomial models
+#' @param parms starting parameter values
+#' @param knots knot locations for smooth
+#' @param predict (logical) predict new responses?
+#' @param family GLM family
+#' @param random smooth variable(s)
+#' @param silent for `MakeADFun`
+fit_mpd_fun <- function(data,
+                        response = "y",
                         xvar = "x",
                         form = s(x, bs = "mpd"), 
                         size = numeric(0),
                         parms = NULL,
                         knots = NULL,
                         predict = FALSE,
-                        family = "gaussian", random = "b1", silent = TRUE,
+                        family = "gaussian",
+                        random = "b1",
+                        silent = TRUE,
                         ...) {
     form$term <- xvar
     ## if predicting, make sure to pass old knots so basis is constructed properly
@@ -72,7 +91,7 @@ fit_mpd_fun <- function(data, response = "y",
                 list(p.ident = sm1$"p.ident", S = sm1$S[[1]], X = sm1$X))
     obj <- mk_mpd_fun(data = tmbdat, parms = parms,
                       random = random, 
-                      silent = silent)
+                      silent = silent, ...)
     ## p0 <- parms[names(parms) != "b1"]
     ## optim(par = p0, fn = obj$fn, control = list(maxit = 2000))
     if (predict) {

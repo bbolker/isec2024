@@ -6,9 +6,14 @@ library(purrr)
 library(dplyr)
 library(bbmle)
 library(RTMB)
+library(tmbstan)
+rstan_options(auto_write=TRUE) ## threads_per_chain not active
+options(mc.cores = 4)
+
 ## what for tidy predictions? ggpredict, marginaleffects, emmeans?
 source("funs.R")
 
+if (!interactive()) pdf("reedfrog.pdf")
 ## GOAL: fit Reed frog predation data, with CIs, using Holling type 2,
 ##  unrestricted GAM, shape-constrained GAM (both scam and RTMB), ...
 ##
@@ -71,7 +76,7 @@ rpars <- MASS::mvrnorm(1000, mu = coef(m_mle2_holling), Sigma = vcov(m_mle2_holl
 n_initial <- 1:100
 preds <- apply(rpars, 1,
                function(x) { a <- exp(x[1]); h <- exp(x[2]); a/(1+a*h*n_initial)})
-matplot(preds, type = "l", col = adjustcolor("black", alpha = 0.3), lty = 1)
+## matplot(preds, type = "l", col = adjustcolor("black", alpha = 0.3), lty = 1)
 ci <- t(apply(preds, 1, quantile, c(0.025, 0.975)))
 
 
@@ -85,7 +90,8 @@ preds_RTMB_holling <- predict_RTMB_holling2(dd, data.frame(Initial = 1:100),
 
 ## fit SCAM with RTMB (Laplace approx doesn't work, need random = NULL)
 m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
-                               size = dd$Initial, xvar = "Initial", family = "binomial", random = NULL)
+                          size = dd$Initial, xvar = "Initial",
+                          family = "binomial", random = NULL)
 
 
 m_RTMB_mpd$fit
@@ -110,22 +116,91 @@ preds_RTMB_mpd <- (preds0
 m_scam_mpd <- scam(Killed ~ s(Initial, bs = "mpd"), data = ddx, family = binomial)
 
 preds_scam_mpd <- pfun(m_scam_mpd)
+
 (all_models <- ls(pattern="^m_"))
 (all_preds <- ls(pattern="^preds_"))
 
-## NOT 'preds_' (don't pollut
+## NOT 'preds_' (don't pollute namespace)
 pred_frame <- (mget(all_preds)
     |> setNames(all_preds)
     |> bind_rows(.id = "model")
     |> mutate(across(model, ~gsub("preds_", "", .)))
 )
 
-ggplot(pred_frame, aes(Initial, prob)) +
-    geom_line(aes(colour = model)) +
-    geom_ribbon(aes(ymin = lwr, ymax = upr, fill = model), colour = NA, alpha = 0.5) +
-    expand_limits(y=0) +
-    geom_point(data=dd, aes(y = Killed/Initial, size = Killed), alpha = 0.5) +
-    facet_wrap(~model)
-## CIs are not monotonic??
+pred_plot <- function(var, data = pred_frame) {
+    var <- enquo(var)
+    gg0 <- ggplot(data, aes(Initial, prob)) +
+        geom_line(aes(colour = !!var)) +
+        geom_ribbon(aes(ymin = lwr, ymax = upr, fill = !!var), colour = NA, alpha = 0.5) +
+        expand_limits(y=0) +
+        geom_point(data=dd, aes(y = Killed/Initial, size = Killed), alpha = 0.5) +
+        facet_wrap(vars(!!var)) +
+        theme(legend.position = "none")
+    return(gg0)
+}
 
+print(pred_plot(model))
+
+
+## scam CIs are not monotonic??
+
+
+## investigate 'oversmoothing' of RTMB ...
+
+get_mpd_fix_preds <- function(log_smSD) {
+    nsm <- sum(names(m_RTMB_mpd$fit$par) == "b1")
+    fixparms <- list(
+        b0 = 0,
+        b1 = rep(0, nsm),
+        ## log(unname(drop(m_scam_mpd$sp)))/2  ## drop extra dimensions etc
+        log_smSD = log_smSD
+    )
+    m_RTMB_mpd_fix <- fit_mpd_fun(data = dd, response = "Killed",
+                                  parms = fixparms,
+                                  map = list(log_smSD = factor(NA_real_)),
+                                  size = dd$Initial, xvar = "Initial",
+                                  family = "binomial",
+                                  random = NULL)
+    preds1 <- fit_mpd_fun(data = ddp, response = "Killed",
+                          size = ddp$Initial, xvar = "Initial", family = "binomial", random = NULL,
+                          knots = k, predict = TRUE,
+                          parms = with(m_RTMB_mpd_fix$obj$env, parList(last.par.best)))
+    preds_RTMB_mpd_fix <- (preds1
+        |> filter(nm == "eta")
+        |> slice_tail(n = 96)
+        |> transmute(Initial = 5:100, prob = plogis(value), lwr = plogis(value-qq*sd),
+                     upr = plogis(value+qq*sd))
+    )
+    return(preds_RTMB_mpd_fix)
+}
+
+sdvec <- c(1, 0, -1, -2, -4, -6)
+pred_fix <- purrr::map_dfr(setNames(sdvec, sdvec),
+               get_mpd_fix_preds,
+               .id = "log_smSD") |> mutate(across(log_smSD, as.numeric))
+
+print(pred_plot(log_smSD, pred_fix))
+
+if (!interactive()) dev.off()
+
+##
+m_RTMB_mpd$fit
+
+m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
+                          size = dd$Initial, xvar = "Initial",
+                          knots = data.frame(Initial = unique(dd$Initial)),
+                          family = "binomial", random = NULL)
+
+
+debug(smooth.construct.mpd.smooth.spec)
+dk <- unique(dd["Initial"])
+nk <- nrow(dk)
+smoothCon(s(Initial, bs = "mpd", k=4), data = dd, absorb.cons = TRUE)
+
+
+if (FALSE) {
+    s1 <- tmbstan(m_RTMB_mpd$obj)
+    library(shinystan)
+    launch_shinystan(s1)
+}
 

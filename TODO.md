@@ -4,10 +4,16 @@
 
 * RTMB_mpd: penalization too strong? Is this (RE)ML vs GCV?
  * compare `m_scam_mpd[c("trA", "aic", "sp", "edf")]`
+ * works OK for binom_test (better data!)
+ 
 * get lambda, ecdf from RTMB_mpd, scam_mpd
+   * `sp` is multiplied by 
 * compare AIC values?
 * ?? what does holling type 2 look like ??
 
+* tmbstan
+* constrained optimization?
+* bad knots? too many, wrong place? (hard to adjust ...)
 
 ## waterbugs
 

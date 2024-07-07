@@ -6,6 +6,9 @@ library(RTMB)
 library(glmmTMB)
 library(scam)
 source("funs.R")
+
+if (!interactive()) pdf("scam_binom_test.pdf")
+
 set.seed(101)
 dd <- data.frame(x=seq(-5, 5, length = 101))
 dd <- within(dd, {
@@ -112,3 +115,5 @@ legend("topright", lty = 1, lwd = 2,
        )
 
 ## close, not identical. RTMB actually looks slightly more sensible (ML vs GCV difference?)
+
+if (!interactive()) dev.off()

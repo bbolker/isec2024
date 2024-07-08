@@ -20,7 +20,11 @@ header-includes:
 
 The basic references are @pyaShape2015 and @woodStable2004 (appendix A).
 
-@pyaShape2015 explain how to set up a monotonic spline by modifying the model matrix $\X$ and constraining the parameters of spline: if $\x_i$ are the elements (column vector) of a P-spline basis, and
+@pyaShape2015 explain how to set up a monotonic spline by modifying the model matrix $\X$ and constraining the parameters of spline: if $\x_i$ are the elements (column vector) of a P-spline basis, and 
 
 \[
-\y = 
+\y = b_0 + \beta_1 \x_1 + (\beta_1 + \beta_2) \x_2 + \ldots + \sum_{i=1}^j \beta_i \x_j
+\]
+with all $\beta_i > 0$, this is a monotonic function.
+
+

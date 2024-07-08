@@ -186,16 +186,18 @@ if (!interactive()) dev.off()
 ##
 m_RTMB_mpd$fit
 
-m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
+
+## not working (wrong number of knots
+if (FALSE) m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
                           size = dd$Initial, xvar = "Initial",
                           knots = data.frame(Initial = unique(dd$Initial)),
                           family = "binomial", random = NULL)
 
 
-debug(smooth.construct.mpd.smooth.spec)
-dk <- unique(dd["Initial"])
-nk <- nrow(dk)
-smoothCon(s(Initial, bs = "mpd", k=4), data = dd, absorb.cons = TRUE)
+## debug(smooth.construct.mpd.smooth.spec)
+## dk <- unique(dd["Initial"])
+## nk <- nrow(dk)
+## smoothCon(s(Initial, bs = "mpd", k=4), data = dd, absorb.cons = TRUE)
 
 
 if (FALSE) {

@@ -23,7 +23,7 @@ mk_mpd_fun <- function(data, parms, random = "b1", silent = TRUE,
     f <- function(parms) {
         getAll(data, parms)
         b_pos <- b1
-        b_pos[p.ident] <- exp(b1)
+        b_pos[p.ident] <- exp(b1[p.ident])
         eta <- b0 + X %*% b_pos
         nll <- 0
         mu <- switch(family,
@@ -179,3 +179,10 @@ scam_pos <- match("package:scam", search())
 aa <- apropos("smooth.construct", where = TRUE)
 scam_smooths <- unname(aa[names(aa) == scam_pos]) |>
     gsub(pattern = "[.]?smooth\\.(construct|spec)[.]?", replacement = "")
+
+## tensors only
+grep("^te", scam_smooths, value = TRUE)
+
+s_help <- function(s) {
+    help(sprintf("smooth.construct.%s.smooth.spec", s))
+}

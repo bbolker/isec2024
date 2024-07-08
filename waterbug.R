@@ -4,10 +4,14 @@ library(bbmle)
 library(emdbook)
 library(mgcv)
 library(scam)
+if (packageVersion("scam") < "1.2.17.9000") stop("need up-to-date/hacked version, see BMB github")
+library(RTMB)
 
 source("funs.R")
 ## rayshader is disappointing/frustrating
 ## library(rayshader)
+
+## other 3d options? rgl, scatterplot3d, ... ?
 
 datfn <- "McCoy_response_surfaces_Gamboa.csv"
 
@@ -83,7 +87,7 @@ cc <- curve3d(1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
         varnames = c("size", "initial"),
         sys3d = "image")
 
-p2 |> add_trace(type =  "mesh3d", data = long_fmt(cc), opacity = 0.4)
+if (interactive()) p2 |> add_trace(type =  "mesh3d", data = long_fmt(cc), opacity = 0.4)
 
 fit2 <- gam(cbind(killed, initial-killed) ~ te(size, initial),
             data = x, family = binomial)
@@ -91,7 +95,66 @@ fit2 <- gam(cbind(killed, initial-killed) ~ te(size, initial),
 gam_pred <- expand.grid(size = 0:60, initial = 0:100)
 gam_pred$prop <- predict(fit2, newdata = gam_pred, type = "response")
 
-p2 |> add_trace(type =  "mesh3d", data = gam_pred, opacity = 0.4)
+if (interactive()) p2 |> add_trace(type =  "mesh3d", data = gam_pred, opacity = 0.4)
+
+xx <- x |> select(killed, size, initial) |> expand_bern(response = "killed", size = x$initial)
+fit3 <- scam(killed ~ s(initial, size, bs = "tesmd2"), data = xx, family = binomial)
+fit3 <- scam(killed ~ s(initial, size, bs = "tesmd1"), data = xx, family = binomial)
+## fails (inner loop 3, can't correct step size)
+## fit3 <- scam(killed ~ s(initial, size, bs = "tedecv"), data = xx, family = binomial)
+
+ss <- s(initial, size, bs = "tedecv")
+x2 <- x |> rename(Size = "size") ## hack, 'size' is confounded
+fit_RTMB <- fit_mpd_fun(data = x2[c("killed", "Size", "initial")],
+            response = "killed",
+            xvar = c("Size", "initial"),
+            form = s(size, initial, bs = "tesmd2"),
+            size = x2$initial,
+            family = "binomial",
+            random = NULL)
+
+
+xp <- expand.grid(Size = 8:60, initial = 6:100)
+k <- (smoothCon(s(Size, initial, bs="tesmd2"),
+                data = x2, absorb.cons = TRUE)[[1]]$knots
+    |> as.data.frame()
+    |> setNames(c("Size", "initial"))
+)
+
+if (FALSE) {
+    preds0 <- fit_mpd_fun(data = xp, response = "Killed",
+                          size = x$initial, xvar = c("Size", "initial"),
+                          family = "binomial", random = NULL,
+                          knots = k, predict = TRUE,
+                          parms = with(fit_RTMB$obj$env, parList(last.par.best)))
+}
+
+with(x, plot(fit_RTMB$mu, killed/initial))
+abline(a=0, b=1)  ## could be worse?
+## predictions?
+
+## marginaleffects::predictions(fit3, newdata = data.frame(size=20, initial=20))
+## devtools::load_all("~/R/pkgs/scam")
+## predict(fit3, newdata = data.frame(size=20, initial=20))
+## debug(predict.scam)
+
+## X[, object$smooth[[k]]$first.para:object$smooth[[k]]$last.para] <- Xfrag %*% object$smooth[[k]]$Zc
+
+## fp <- object$smooth[[k]]$first.para  ## 2
+## lp <- object$smooth[[k]]$last.para ## 49
+## X1 <- X[,fp:lp, drop = FALSE]
+## object$smooth[[k]]$cmX
+
+## X[, object$smooth[[k]]$first.para:object$smooth[[k]]$last.para] <- sweep(X[, object$smooth[[k]]$first.para:object$smooth[[k]]$last.para], 2, object$smooth[[k]]$cmX)
+
+cc_scam <- curve3d(predict(fit3, newdata = data.frame(size, initial), type = "response"),
+              xlim = c(0, 60),
+              ylim = c(0, 100),
+##            1/(1/(c*size/d*exp(1-size/d)) + h*size*initial)
+        varnames = c("size", "initial"),
+        sys3d = "image")
+
+if (interactive()) p2 |> add_trace(type =  "mesh3d", data = long_fmt(cc_scam), opacity = 0.4)
 
 ## unimodal??
 

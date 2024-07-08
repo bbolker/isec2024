@@ -123,6 +123,18 @@ pfun(sm2$X, "P-spline")
 pfun(sm1$X, "Monotonic p-spline")
 ```
 
+## reed frog example
+
+## waterbug example
+
+## goal/loose ends
+
+* make shape-constrained bases more generally available  
+(e.g. as components of more complex/semimechanistic models)
+    * RTMB
+	* glmmTMB?
+* expand set of possible constraints (e.g. unimodal functions)
+
 <!-- https://bookdown.org/yihui/rmarkdown-cookbook/multi-column.html -->
 
 <!--

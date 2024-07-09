@@ -65,6 +65,7 @@ mk_mpd_fun <- function(data, parms, random = "b1", silent = TRUE,
 #' @param family GLM family
 #' @param random smooth variable(s)
 #' @param silent for `MakeADFun`
+#' @param ... passed to `mk_mpd_fun`, thence to `MakeADFun`
 fit_mpd_fun <- function(data,
                         response = "y",
                         xvar = "x",
@@ -76,6 +77,7 @@ fit_mpd_fun <- function(data,
                         family = "gaussian",
                         random = "b1",
                         silent = TRUE,
+                        opt = "nlminb",
                         ...) {
     form$term <- xvar
     ## if predicting, make sure to pass old knots so basis is constructed properly
@@ -95,13 +97,19 @@ fit_mpd_fun <- function(data,
     ## p0 <- parms[names(parms) != "b1"]
     ## optim(par = p0, fn = obj$fn, control = list(maxit = 2000))
     if (predict) {
-        ## shouldn't need to map() b if random = NULL ?
+        ## shouldn't need to map() b since we are using best-fit  if random = NULL ?
+        ## if (!is.null(random)) parms <- parms[setdiff(names(parms), random)]
         obj$fn(unlist(parms))
         sdr <- sdreport(obj)
         return(with(sdr,
                     data.frame(nm = names(value), value, sd)))
     }
-    res <- with(obj, nlminb(par, fn, gr, control = list(eval.max = 1000)))
+    res <- with(obj,
+                switch(opt,
+                       nlminb =  nlminb(par, fn, gr, control = list(eval.max = 1000, iter.max = 1000)),
+                       BFGS = optim(par, fn, gr, method = "BFGS", control = list(maxit =1000)),
+                       stop("unknown optimizer ", opt))
+                )
     ret <- list(fit = res, obj = obj, mu = obj$report()$mu, eta = obj$report()$eta)
     class(ret) <- c("myRTMB", "list")
     return(ret)
@@ -162,6 +170,30 @@ predict_RTMB_holling2 <- function(data, newdata, parms, response = "Killed",
 }
     
 
+## attempt to get predictions directly from X matrix ...
+## newpred <- function(data = data.frame(Initial = 5:100),
+##                     olddata = dd,
+##                     fit = m_RTMB2_mpd,
+##                     xvar = "Initial",
+##                     form = s(x, bs = "mpd"), 
+##                     size = numeric(0),
+##                     parms = NULL,
+##                     knots = NULL) {
+##     browser()
+##     form$term <- xvar
+##     k <- data.frame(Initial = smoothCon(s(Initial, bs="mpd"), data = olddata, absorb.cons = TRUE)[[1]]$knots)
+##     sm1 <- smoothCon(form, data = data, absorb.cons = TRUE, knots = k)[[1]]
+##     X <- cbind(1, sm1$X)
+##     p <- fit$obj$env$last.par.best
+##     p <- p[grepl("^b", names(p))]
+##     pos.pars <- names(p) == "b1"
+##     p[pos.pars] <- exp(p[pos.pars])
+##     plogis(X %*% p)
+##     sdr <- sdreport(fit$obj, getJointPrec = TRUE)
+##     V <- vcov(fit)
+## }
+
+## newpred()
 ##
 ## apropos("smooth.construct")
 ## ?smooth.construct.miso.smooth.spec
@@ -186,3 +218,4 @@ grep("^te", scam_smooths, value = TRUE)
 s_help <- function(s) {
     help(sprintf("smooth.construct.%s.smooth.spec", s))
 }
+

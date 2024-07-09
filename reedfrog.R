@@ -94,24 +94,47 @@ m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
                           family = "binomial", random = NULL)
 
 
+m_RTMB2_mpd <- fit_mpd_fun(data = dd, response = "Killed",
+                          size = dd$Initial, xvar = "Initial",
+                          family = "binomial", random = "b1",
+                          inner.control = list(smartsearch=FALSE, maxit =1),
+                          opt  = "BFGS")
+
 m_RTMB_mpd$fit
-ddp <- as.list(dd)
-## don't go outside original range, technical issues with outer.ok in splineDesign ...
-ddp$Initial <- c(dd$Initial, 5:100)
-ddp$Killed <- c(dd$Killed, rep(NA_integer_, 96))
-ddp <- as.data.frame(ddp) ## MUST have nrow()
-k <- data.frame(Initial = smoothCon(s(Initial, bs="mpd"), data = dd, absorb.cons = TRUE)[[1]]$knots)
-preds0 <- fit_mpd_fun(data = ddp, response = "Killed",
-            size = ddp$Initial, xvar = "Initial", family = "binomial", random = NULL,
-            knots = k, predict = TRUE,
-            parms = with(m_RTMB_mpd$obj$env, parList(last.par.best)))
-qq <- qnorm(0.975)
-preds_RTMB_mpd <- (preds0
-    |> filter(nm == "eta")
-    |> slice_tail(n = 96)
-    |> transmute(Initial = 5:100, prob = plogis(value), lwr = plogis(value-qq*sd),
-                 upr = plogis(value+qq*sd))
-)
+m_RTMB2_mpd$fit
+
+
+## don't go outside original range (i.e initial<5), technical issues with outer.ok in splineDesign ...
+dnew <- data.frame(Initial = 5:100)
+
+rf_predfun <- function(fit, newdata = dnew, olddata = dd, ci_level = 0.95, random = NULL, extra_pars = NULL, ...) {
+    n_new <- nrow(newdata)
+    ddp <- data.frame(Initial = c(olddata$Initial, newdata$Initial),
+                      Killed = c(olddata$Initial, rep(NA_integer_, n_new)))
+    k <- data.frame(Initial = smoothCon(s(Initial, bs="mpd"), data = olddata, absorb.cons = TRUE)[[1]]$knots)
+    ee <- fit$obj$env
+    pp <- c(split(unname(ee$last.par.best), names(ee$last.par.best)), extra_pars)
+    preds0 <- fit_mpd_fun(data = ddp, response = "Killed",
+                          size = ddp$Initial,
+                          xvar = "Initial",
+                          family = "binomial",
+                          random = random,
+                          knots = k,
+                          predict = TRUE,
+                          parms = pp, ...)
+    qq <- qnorm((1+ci_level)/2)
+    ret <- (preds0
+        |> filter(nm == "eta")
+        |> slice_tail(n = n_new)
+        |> transmute(Initial = newdata$Initial, prob = plogis(value), lwr = plogis(value-qq*sd),
+                     upr = plogis(value+qq*sd))
+    )
+    return(ret)
+}
+
+preds_RTMB_mpd <- rf_predfun(m_RTMB_mpd)
+## FIXME: still need to sort out warning messages
+preds_RTMB2_mpd <- rf_predfun(m_RTMB2_mpd, random = "b1",  inner.control = list(smartsearch=FALSE, maxit =1))
 
 m_scam_mpd <- scam(Killed ~ s(Initial, bs = "mpd"), data = ddx, family = binomial)
 
@@ -141,13 +164,17 @@ pred_plot <- function(var, data = pred_frame) {
 
 print(pred_plot(model))
 
-
+save("pred_plot", "pred_frame", file = "reedfrog_plots.rda")
 ## scam CIs are not monotonic??
 
 
 ## investigate 'oversmoothing' of RTMB ...
+## FIXME: clean up/integrate with rf_predfun above, OR get rid of it ?
 
-get_mpd_fix_preds <- function(log_smSD) {
+ddp <- data.frame(Initial = c(dd$Initial, 5:100),
+                  Killed = c(dd$Initial, rep(NA_integer_, 96)))
+k <- data.frame(Initial = smoothCon(s(Initial, bs="mpd"), data = dd, absorb.cons = TRUE)[[1]]$knots)
+get_mpd_fix_preds <- function(log_smSD, ci_level = 0.95) {
     nsm <- sum(names(m_RTMB_mpd$fit$par) == "b1")
     fixparms <- list(
         b0 = 0,
@@ -161,10 +188,11 @@ get_mpd_fix_preds <- function(log_smSD) {
                                   size = dd$Initial, xvar = "Initial",
                                   family = "binomial",
                                   random = NULL)
-    preds1 <- fit_mpd_fun(data = ddp, response = "Killed",
+     preds1 <- fit_mpd_fun(data = ddp, response = "Killed",
                           size = ddp$Initial, xvar = "Initial", family = "binomial", random = NULL,
                           knots = k, predict = TRUE,
                           parms = with(m_RTMB_mpd_fix$obj$env, parList(last.par.best)))
+    qq <- qnorm((1+ci_level)/2)
     preds_RTMB_mpd_fix <- (preds1
         |> filter(nm == "eta")
         |> slice_tail(n = 96)
@@ -174,6 +202,7 @@ get_mpd_fix_preds <- function(log_smSD) {
     return(preds_RTMB_mpd_fix)
 }
 
+
 sdvec <- c(1, 0, -1, -2, -4, -6)
 pred_fix <- purrr::map_dfr(setNames(sdvec, sdvec),
                get_mpd_fix_preds,
@@ -182,10 +211,6 @@ pred_fix <- purrr::map_dfr(setNames(sdvec, sdvec),
 print(pred_plot(log_smSD, pred_fix))
 
 if (!interactive()) dev.off()
-
-##
-m_RTMB_mpd$fit
-
 
 ## not working (wrong number of knots
 if (FALSE) m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
@@ -206,3 +231,23 @@ if (FALSE) {
     launch_shinystan(s1)
 }
 
+## AIC values?
+lapply(mget(all_models), \(x) try(AIC(x)))
+## scam gives silly answer
+
+## what is ecdf for RTMB fits?
+## log-likelihood?
+
+
+## compute log-likelihoods?
+scam_LL0 <- logLik(m_scam_mpd)
+logLik(m_gam_tp)
+pp <- drop(predict(m_scam_mpd, newdata = dd, type = "response"))
+gam_LL <- with(dd, sum(dbinom(Killed, size = Initial, prob = pp, log = TRUE)))
+-2*gam_LL + 2*attr(scam_LL0, "df")
+logLik(m_mle2_holling)
+
+my_aictab <- tibble(nll = 
+AIC(m_mle2_holling)
+AIC(m_gam_tp)
+AICtab(m_mle2_holling, m_gam_tp, logLik = TRUE)

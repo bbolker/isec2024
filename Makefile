@@ -3,3 +3,6 @@ talk:
 
 %.Rout: %.R
 	R CMD BATCH --vanilla $<
+
+%.html: %.rmd
+	Rscript -e "rmarkdown::render('$<')"

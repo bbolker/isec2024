@@ -54,6 +54,7 @@ library(knitr)
 library(ggplot2); theme_set(theme_bw(base_size=16))
 library(scam)
 library(mgcv)
+library(tidyverse)
 ```
 
 # Shape-constrained models
@@ -124,6 +125,23 @@ pfun(sm1$X, "Monotonic p-spline")
 ```
 
 ## reed frog example
+
+```{r}
+L <- load("reedfrog_plots.rda")
+pf <- pred_frame |> filter(model != "RTMB_mpd")
+pred_plot <- function(var, data = pred_frame) {
+    var <- enquo(var)
+    gg0 <- ggplot(data, aes(Initial, prob)) +
+        geom_line(aes(colour = !!var)) +
+        geom_ribbon(aes(ymin = lwr, ymax = upr, fill = !!var), colour = NA, alpha = 0.5) +
+        expand_limits(y=0) +
+        geom_point(data=dd, aes(y = Killed/Initial, size = Killed), alpha = 0.5) +
+        facet_wrap(vars(!!var)) +
+        theme(legend.position = "none")
+    return(gg0)
+}
+pred_plot(model, pf)
+```
 
 ## waterbug example
 

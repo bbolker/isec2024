@@ -164,12 +164,48 @@ pred_plot <- function(var, data = pred_frame) {
 
 print(pred_plot(model))
 
-save("pred_plot", "pred_frame", file = "reedfrog_plots.rda")
-## scam CIs are not monotonic??
+## compute log-likelihoods?
+scam_df <- attr(logLik(m_scam_mpd), "df")
+pp <- drop(predict(m_scam_mpd, newdata = dd, type = "response"))
+scam_nll <- with(dd, -sum(dbinom(Killed, size = Initial, prob = pp, log = TRUE)))
+scam_AIC <- 2*(scam_nll + scam_df)
 
+gam_df <- attr(gll <- logLik(m_gam_tp), "df")
+gam_nll <- -1*c(gll)
+gam_AIC <- AIC(m_gam_tp)
+
+mle2_nll <- -1*(mll <- logLik(m_mle2_holling))
+mle2_df <- attr(mll, "df")
+mle2_AIC <- AIC(m_mle2_holling)
+
+with(dd, -sum(dbinom(Killed, size = Initial, prob = m_RTMB_mpd$mu, log = TRUE)))
+
+
+rf_aictab <- tibble(
+    model = c("scam/mpd", "gam/tp", "mle2/holling"),
+    AIC = c(scam_AIC, gam_AIC, mle2_AIC),
+    nll = c(scam_nll, gam_nll, mle2_nll),
+    df = c(scam_df, gam_df, mle2_df)
+) |> mutate(across(c(AIC, nll), ~ . - min(.)))
+
+save("dd", "pred_plot", "pred_frame", "rf_aictab", file = "reedfrog_stuff.rda")
+## scam CIs are not monotonic??
 
 ## investigate 'oversmoothing' of RTMB ...
 ## FIXME: clean up/integrate with rf_predfun above, OR get rid of it ?
+
+if (FALSE) {
+    ## w: working weights (precisions of params?)
+    
+     # calculating tr(A)...
+     I.plus <- rep(1,nobs)   # define diagonal elements of the matrix I^{+}
+     I.plus[w<0] <- -1
+     L <- c(1/alpha)    # define diagonal elements of L=diag(1/alpha)
+     ## NOTE PKt is O(np^2) and not needed --- can compute trA as side effect of gradiant
+     KtILQ1R <- crossprod(L*I.plus*K,wX1) ## t(L*I.plus*K)%*%wX1 
+     edf <- rowSums(P*t(KtILQ1R))
+     trA <- sum(edf)
+}
 
 ddp <- data.frame(Initial = c(dd$Initial, 5:100),
                   Killed = c(dd$Initial, rep(NA_integer_, 96)))
@@ -189,9 +225,10 @@ get_mpd_fix_preds <- function(log_smSD, ci_level = 0.95) {
                                   family = "binomial",
                                   random = NULL)
      preds1 <- fit_mpd_fun(data = ddp, response = "Killed",
-                          size = ddp$Initial, xvar = "Initial", family = "binomial", random = NULL,
-                          knots = k, predict = TRUE,
-                          parms = with(m_RTMB_mpd_fix$obj$env, parList(last.par.best)))
+                           size = ddp$Initial, xvar = "Initial",
+                           family = "binomial", random = NULL,
+                           knots = k, predict = TRUE,
+                           parms = with(m_RTMB_mpd_fix$obj$env, parList(last.par.best)))
     qq <- qnorm((1+ci_level)/2)
     preds_RTMB_mpd_fix <- (preds1
         |> filter(nm == "eta")
@@ -203,7 +240,8 @@ get_mpd_fix_preds <- function(log_smSD, ci_level = 0.95) {
 }
 
 
-sdvec <- c(1, 0, -1, -2, -4, -6)
+## pred breaks (no SDs) if log_smSD >= 2
+sdvec <- c(1.5, 1, 0, -1, -2, -4)
 pred_fix <- purrr::map_dfr(setNames(sdvec, sdvec),
                get_mpd_fix_preds,
                .id = "log_smSD") |> mutate(across(log_smSD, as.numeric))
@@ -212,7 +250,7 @@ print(pred_plot(log_smSD, pred_fix))
 
 if (!interactive()) dev.off()
 
-## not working (wrong number of knots
+## not working (wrong number of knots)
 if (FALSE) m_RTMB_mpd <- fit_mpd_fun(data = dd, response = "Killed",
                           size = dd$Initial, xvar = "Initial",
                           knots = data.frame(Initial = unique(dd$Initial)),
@@ -231,23 +269,3 @@ if (FALSE) {
     launch_shinystan(s1)
 }
 
-## AIC values?
-lapply(mget(all_models), \(x) try(AIC(x)))
-## scam gives silly answer
-
-## what is ecdf for RTMB fits?
-## log-likelihood?
-
-
-## compute log-likelihoods?
-scam_LL0 <- logLik(m_scam_mpd)
-logLik(m_gam_tp)
-pp <- drop(predict(m_scam_mpd, newdata = dd, type = "response"))
-gam_LL <- with(dd, sum(dbinom(Killed, size = Initial, prob = pp, log = TRUE)))
--2*gam_LL + 2*attr(scam_LL0, "df")
-logLik(m_mle2_holling)
-
-my_aictab <- tibble(nll = 
-AIC(m_mle2_holling)
-AIC(m_gam_tp)
-AICtab(m_mle2_holling, m_gam_tp, logLik = TRUE)

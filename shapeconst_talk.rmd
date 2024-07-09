@@ -57,8 +57,6 @@ library(mgcv)
 library(tidyverse)
 ```
 
-# Shape-constrained models
-
 ## @levinsStrategy1966
 
 1. realism and precision [engineering: "tactical" models]
@@ -124,10 +122,29 @@ pfun(sm2$X, "P-spline")
 pfun(sm1$X, "Monotonic p-spline")
 ```
 
-## reed frog example
 
-```{r}
-L <- load("reedfrog_plots.rda")
+## reed frog example (raw data)
+
+```{r get_rf}
+L <- load("reedfrog_stuff.rda")
+```
+
+```{r rf-raw, out.width = "70%"}
+pf <- (pred_frame
+    |> filter(model == "mle2_holling")
+    |> mutate(across(c(prob, lwr, upr), ~. * Initial))
+)
+ggplot(pf, aes(x = Initial)) +
+    geom_line(aes(y = prob)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), colour = NA, fill = "black", alpha = 0.3) +
+    expand_limits(y=0) +
+    geom_point(data=dd, aes(y = Killed, size = Killed), alpha = 0.5) +
+    labs(y = "Number predated")
+```
+
+## reed frog example (fits)
+
+```{r fit-plot, out.width = "100%"}
 pf <- pred_frame |> filter(model != "RTMB_mpd")
 pred_plot <- function(var, data = pred_frame) {
     var <- enquo(var)
@@ -143,6 +160,12 @@ pred_plot <- function(var, data = pred_frame) {
 pred_plot(model, pf)
 ```
 
+## goodness of fit
+
+```{r aictab1}
+pander::pander(rf_aictab, digits = 2)
+```
+
 ## waterbug example
 
 ## goal/loose ends
@@ -151,6 +174,7 @@ pred_plot(model, pf)
 (e.g. as components of more complex/semimechanistic models)
     * RTMB
 	* glmmTMB?
+* flush out bugs in `scam`/make `RTMB` fitting more robust	
 * expand set of possible constraints (e.g. unimodal functions)
 
 <!-- https://bookdown.org/yihui/rmarkdown-cookbook/multi-column.html -->

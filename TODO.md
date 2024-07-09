@@ -20,6 +20,7 @@
 ## waterbugs
 
 * fit!
+* AIC tables for various parametric fits
 * scam, RTMB (semimech)
 
 ## simulations?

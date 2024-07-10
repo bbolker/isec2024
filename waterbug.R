@@ -15,9 +15,10 @@ source("funs.R")
 
 datfn <- "McCoy_response_surfaces_Gamboa.csv"
 
+## belostomatids only
 x <- (read.csv(datfn)
     |> transform(block = factor(block))
-    |> subset(cohort == "single" & predtype == "belo",
+    |> subset(cohort == "single" & predtype == "odo",
               select = -c(cohort, predtype))
     |> droplevels()
     |> transform(csize = size - mean(size), prop = killed/initial)
@@ -32,8 +33,9 @@ gg1 <- ggplot(x, aes(x = initial, y = size)) +
     scale_colour_viridis_c()
 
 gg2 <- ggplot(x, aes(x = initial, y = size)) +
-    geom_point(aes(colour = killed/initial), size = 4)
-    ## scale_colour_viridis_c()
+    ## stat_sum(aes(colour= killed/initial)) +
+    geom_point(aes(colour = killed/initial), size = 4) +
+    scale_colour_viridis_c()
 print(gg2)
 
 marker <- list(color = ~prop,
@@ -52,17 +54,35 @@ seg_data <- function(x, zvar) {
 }
 
 ## https://stackoverflow.com/questions/72281954/keep-other-columns-when-doing-group-by-summarise-with-dplyr
-
-p2 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
-    |> add_markers(data = x, marker = marker)
-    |> add_paths(data = seg_data(x, prop))
+## https://stackoverflow.com/questions/50012328/r-plotly-showlegend-false-does-not-work
+wb_plotly_0 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
+    |> add_markers(data = x, marker = marker, showlegend = FALSE)
+    |> add_paths(data = seg_data(x, prop), , showlegend = FALSE)
+    |> hide_colorbar()
     |> layout(scene = list(yaxis = list(rangemode = "tozero"),
-              xaxis = list(rangemode = "tozero")))
+                           xaxis = list(rangemode = "tozero"),
+                           camera = list(eye = list(x = 2.5, y = 2, z = 1)),
+                           showlegend=FALSE))
 )
-print(p2)
+if (interactive()) print(wb_plotly_0)
+
+img <- function(obj, width = 1000, height = 1000, trim = TRUE) {
+    nm <- paste0(deparse(substitute(obj)), ".png")
+    save_image(obj, nm, width = width, height = height)
+    if (trim) {
+        system(sprintf("convert %s -trim tmp.png; mv tmp.png pix/%s", nm, nm))
+    }
+}
+img(wb_plotly_0)
 
 ## https://www.datanovia.com/en/blog/how-to-create-a-ggplot-like-3d-scatter-plot-using-plotly/
 ## https://community.plotly.com/t/droplines-from-points-in-3d-scatterplot/4113/10
+
+## are these for belo or odo??
+L <- load("waterbug_fits_2.RData")
+L <- load("waterbug_fits_2z.RData")
+aictab <- tibble(resframe, aic = sapply(res, AIC)) |> mutate(across(aic, ~ . - min(.))) |> arrange(aic)
+    
 
 ## power-ricker or  ricker attack rate, proportional handling time
 fit1 <- mle2(killed ~ dbinom(prob = 1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
@@ -87,21 +107,39 @@ cc <- curve3d(1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
         varnames = c("size", "initial"),
         sys3d = "image")
 
-if (interactive()) p2 |> add_trace(type =  "mesh3d", data = long_fmt(cc), opacity = 0.4)
 
-fit2 <- gam(cbind(killed, initial-killed) ~ te(size, initial),
+## https://stackoverflow.com/questions/34178381/how-to-specify-camera-perspective-of-3d-plotly-chart-in-r
+wb_plotly_param <- (wb_plotly_0
+    |> add_trace(type =  "mesh3d", data = long_fmt(cc), opacity = 0.4)
+)
+img(wb_plotly_param)
+
+wb_gam_te <- gam(cbind(killed, initial-killed) ~ te(size, initial),
             data = x, family = binomial)
 
-gam_pred <- expand.grid(size = 0:60, initial = 0:100)
-gam_pred$prop <- predict(fit2, newdata = gam_pred, type = "response")
+wb_gam_pred <- expand.grid(size = 0:60, initial = 0:100)
+wb_gam_pred$prop <- predict(wb_gam_te, newdata = gam_pred, type = "response")
 
-if (interactive()) p2 |> add_trace(type =  "mesh3d", data = gam_pred, opacity = 0.4)
+wb_plotly_gam <- (wb_plotly_0
+    |> add_trace(type =  "mesh3d", data = wb_gam_pred, opacity = 0.4)
+)
+img(wb_plotly_gam)
 
 xx <- x |> select(killed, size, initial) |> expand_bern(response = "killed", size = x$initial)
-fit3 <- scam(killed ~ s(initial, size, bs = "tesmd2"), data = xx, family = binomial)
-fit3 <- scam(killed ~ s(initial, size, bs = "tesmd1"), data = xx, family = binomial)
-## fails (inner loop 3, can't correct step size)
-## fit3 <- scam(killed ~ s(initial, size, bs = "tedecv"), data = xx, family = binomial)
+## tesmd2, tesmd1 = smooth monotone decreasing in var1/2, no constraint otherwise
+## fit3 <- scam(killed ~ s(initial, size, bs = "tesmd2"), data = xx, family = binomial)
+## fit3 <- scam(killed ~ s(initial, size, bs = "tesmd1"), data = xx, family = binomial)
+## fails for belo .... (inner loop 3, can't correct step size)
+
+## https://plotly.com/r/static-image-export/
+
+## decreasing wrt var 1, convex wrt var 2
+wb_scam_tedecv <- scam(killed ~ s(initial, size, bs = "tedecv"), data = xx, family = binomial)
+
+scam_pred <- gam_pred
+scam_pred$prop <- predict(fit3, newdata = scam_pred, type = "response")
+wb_plotly_scam <- wb_plotly_0 |> add_trace(type =  "mesh3d", data = scam_pred, opacity = 0.4)
+img(wb_plotly_scam)
 
 ss <- s(initial, size, bs = "tedecv")
 x2 <- x |> rename(Size = "size") ## hack, 'size' is confounded
@@ -111,8 +149,11 @@ fit_RTMB <- fit_mpd_fun(data = x2[c("killed", "Size", "initial")],
             form = s(size, initial, bs = "tesmd2"),
             size = x2$initial,
             family = "binomial",
+            inner.control = list(smartsearch=FALSE, maxit =1),
+            opt = "BFGS",
+            start = list(b0 = -2, log_smD = 2),
+            ## works with random = NULL; start from better values?
             random = NULL)
-
 
 xp <- expand.grid(Size = 8:60, initial = 6:100)
 k <- (smoothCon(s(Size, initial, bs="tesmd2"),

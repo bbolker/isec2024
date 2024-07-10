@@ -6,7 +6,9 @@ bibliography: isec2024.bib
 csl: reflist2.csl
 output:
   ioslides_presentation
+citation-package: biblatex
 header-includes:
+- \usepackage[authordate, backend=biber]{biblatex-chicago}
 - \usepackage{amsmath}
 - \usepackage{amssymbol}
 - \newcommand{\y}{\boldsymbol y}
@@ -57,11 +59,18 @@ library(mgcv)
 library(tidyverse)
 ```
 
-## @levinsStrategy1966
+## modeling tradeoffs
+
+@levinsStrategy1966 proposed that models faced a tradeoff among **realism**, **precision**, and **generality**
 
 1. realism and precision [engineering: "tactical" models]
 2. precision and generality [physics/"spherical cow": Lotka-Volterra style]
 3. realism and generality [math]
+
+see also @alday1978
+
+<!-- https://tex.stackexchange.com/questions/544666/how-to-cite-a-song-in-a-bib-file -->
+<!-- https://tex.stackexchange.com/questions/449191/using-biblatex-with-r-markdown -->
 
 ## parametric models
 
@@ -166,7 +175,31 @@ pred_plot(model, pf)
 pander::pander(rf_aictab, digits = 2)
 ```
 
-## waterbug example
+## size/density interactions
+
+```{r wb-0, out.width="60%"}
+knitr::include_graphics("pix/wb_plotly_0.png")
+```
+
+## mechanistic fit
+
+attack rate = Ricker, handling time = prop to size
+
+```{r wb-param, out.width="60%"}
+knitr::include_graphics("pix/wb_plotly_param.png")
+```
+
+## GAM fit
+
+```{r wb-gam, out.width="60%"}
+knitr::include_graphics("pix/wb_plotly_gam.png")
+```
+
+## shape-constrained fit
+
+```{r wb-scam, out.width="60%"}
+knitr::include_graphics("pix/wb_plotly_scam.png")
+```
 
 ## goal/loose ends
 

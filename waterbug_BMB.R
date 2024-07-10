@@ -21,7 +21,7 @@ x <- read.csv(file.path(wd,datfn))
 x$block <- factor(x$block) #Make the block labels into factors
 
 ##Visually explore the data
-x <- drop.levels(subset(x,cohort=="single"))  # Isolate the data from the single cohort treatements for analysis
+x <- drop.levels(subset(x,cohort=="single"))  # Isolate the data from the single cohort treatments for analysis
 
 bugdat <-  subset(x,predtype=="belo")  #Isolate data for Odonates
 

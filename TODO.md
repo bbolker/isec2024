@@ -20,8 +20,13 @@
 ## waterbugs
 
 * fit!
+* pix
 * AIC tables for various parametric fits
-* scam, RTMB (semimech)
+* scam, RTMB (semimech)?? one smooth for mpd, 
+
+
+larvae of red-eyed treefrogs Agalychnis callidryas and two species of aquatic invertebrate predators, adult predatory water bugs (Belostoma sp. Belostomatidae) and dragonfly nymphs (Pantala flavescens Libellulidae)
+
 
 ## simulations?
 

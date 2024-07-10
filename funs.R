@@ -106,8 +106,8 @@ fit_mpd_fun <- function(data,
     }
     res <- with(obj,
                 switch(opt,
-                       nlminb =  nlminb(par, fn, gr, control = list(eval.max = 1000, iter.max = 1000)),
-                       BFGS = optim(par, fn, gr, method = "BFGS", control = list(maxit =1000)),
+                       nlminb =  try(nlminb(par, fn, gr, control = list(eval.max = 1000, iter.max = 1000))),
+                       BFGS = try(optim(par, fn, gr, method = "BFGS", control = list(maxit =1000))),
                        stop("unknown optimizer ", opt))
                 )
     ret <- list(fit = res, obj = obj, mu = obj$report()$mu, eta = obj$report()$eta)

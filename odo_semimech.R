@@ -144,5 +144,5 @@ RTMB_sm_pred <- (preds0
                  upr = plogis(value+qq*sd))
 )
 
-wb_sm_aic <- get_info(m_RTMB_sm, newdata = x, init_dens = "initial")
-save(m_RTMB_sm, RTMB_sm_pred, wb_sm_aic, file = "wb_semimech.rda")
+odo_sm_aic <- get_info(m_RTMB_sm, newdata = x, init_dens = "initial")
+save(m_RTMB_sm, RTMB_sm_pred, odo_sm_aic, file = "odo_semimech.rda")

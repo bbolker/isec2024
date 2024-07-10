@@ -212,8 +212,8 @@ pander::pander(rf2, digits = 2, justify = "lccc", keep.trailing.zeros = TRUE)
 *  @mccoyPredicting2011:  
 dragonfly nymphs vs. red-eyed treefrog tadpoles
 
-```{r wb-0, out.width="60%", fig.align = "center"}
-knitr::include_graphics("pix/wb_plotly_0.png")
+```{r odo-0, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_0.png")
 ```
 
 ## mechanistic fit
@@ -221,8 +221,8 @@ knitr::include_graphics("pix/wb_plotly_0.png")
 predation prob = $a(s)/(1+a(s) h(s) x)$  
 $a(s)$ = Ricker, $h(s) = cs$
 
-```{r wb-param, out.width="60%", fig.align = "center"}
-knitr::include_graphics("pix/wb_plotly_param.png")
+```{r odo-param, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_param.png")
 ```
 
 ## GAM fit
@@ -230,8 +230,8 @@ knitr::include_graphics("pix/wb_plotly_param.png")
 `mgcv::gam()`  
 with `s(size, initial, bs = "te")`
 
-```{r wb-gam, out.width="60%", fig.align = "center"}
-knitr::include_graphics("pix/wb_plotly_gam.png")
+```{r odo-gam, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_gam.png")
 ```
 
 ## shape-constrained fit
@@ -239,8 +239,8 @@ knitr::include_graphics("pix/wb_plotly_gam.png")
 `scam::scam()`  
 with `bs = "tedecv"` (decreasing × concave)
 
-```{r wb-scam, out.width="60%", fig.align = "center"}
-knitr::include_graphics("pix/wb_plotly_scam.png")
+```{r odo-scam, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_scam.png")
 ```
 
 ## shape-constrained fit (RTMB)
@@ -248,15 +248,15 @@ knitr::include_graphics("pix/wb_plotly_scam.png")
 `RTMB`  
 same basis/penalty as `scam`
 
-```{r wb-RTMB, out.width="60%", fig.align = "center"}
-knitr::include_graphics("pix/wb_plotly_RTMB1.png")
+```{r odo-RTMB, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_RTMB_tecdv.png")
 ```
 
 ## goodness of fit
 
-```{r wb-aic}
-L <- load("waterbug_stuff.rda")
-pander::pander(wb_aictab, digits = c(2, 2, 3, 2), justify = "lccc", keep.trailing.zeros = TRUE)
+```{r odo-aic}
+L <- load("odo_stuff.rda")
+pander::pander(odo_aictab, digits = c(2, 2, 3, 2), justify = "lccc", keep.trailing.zeros = TRUE)
 ```
 
 ## conclusions

@@ -55,7 +55,7 @@ seg_data <- function(x, zvar) {
 
 ## https://stackoverflow.com/questions/72281954/keep-other-columns-when-doing-group-by-summarise-with-dplyr
 ## https://stackoverflow.com/questions/50012328/r-plotly-showlegend-false-does-not-work
-wb_plotly_0 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
+odo_plotly_0 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
     |> add_markers(data = x, marker = marker, showlegend = FALSE)
     |> add_paths(data = seg_data(x, prop), , showlegend = FALSE)
     |> hide_colorbar()
@@ -64,7 +64,7 @@ wb_plotly_0 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
                            camera = list(eye = list(x = 2.5, y = 2, z = 1)),
                            showlegend=FALSE))
 )
-if (interactive()) print(wb_plotly_0)
+if (interactive()) print(odo_plotly_0)
 
 img <- function(obj, width = 1000, height = 1000, trim = TRUE) {
     nm <- paste0(deparse(substitute(obj)), ".png")
@@ -73,7 +73,7 @@ img <- function(obj, width = 1000, height = 1000, trim = TRUE) {
         system(sprintf("convert %s -trim tmp.png; mv tmp.png pix/%s", nm, nm))
     }
 }
-img(wb_plotly_0)
+img(odo_plotly_0)
 
 ## https://www.datanovia.com/en/blog/how-to-create-a-ggplot-like-3d-scatter-plot-using-plotly/
 ## https://community.plotly.com/t/droplines-from-points-in-3d-scatterplot/4113/10
@@ -109,21 +109,21 @@ cc <- curve3d(1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
 
 
 ## https://stackoverflow.com/questions/34178381/how-to-specify-camera-perspective-of-3d-plotly-chart-in-r
-wb_plotly_param <- (wb_plotly_0
+odo_plotly_param <- (odo_plotly_0
     |> add_trace(type =  "mesh3d", data = long_fmt(cc), opacity = 0.4)
 )
-img(wb_plotly_param)
+img(odo_plotly_param)
 
 m_gam_te <- gam(cbind(killed, initial-killed) ~ te(size, initial),
             data = x, family = binomial)
 
-wb_gam_pred <- expand.grid(size = 0:60, initial = 0:100)
-wb_gam_pred$prop <- predict(m_gam_te, newdata = wb_gam_pred, type = "response")
+odo_gam_pred <- expand.grid(size = 0:60, initial = 0:100)
+odo_gam_pred$prop <- predict(m_gam_te, newdata = odo_gam_pred, type = "response")
 
-wb_plotly_gam <- (wb_plotly_0
-    |> add_trace(type =  "mesh3d", data = wb_gam_pred, opacity = 0.4)
+odo_plotly_gam <- (odo_plotly_0
+    |> add_trace(type =  "mesh3d", data = odo_gam_pred, opacity = 0.4)
 )
-img(wb_plotly_gam)
+img(odo_plotly_gam)
 
 xx <- x |> select(killed, size, initial) |> expand_bern(response = "killed", size = x$initial)
 ## tesmd2, tesmd1 = smooth monotone decreasing in var1/2, no constraint otherwise
@@ -136,10 +136,10 @@ xx <- x |> select(killed, size, initial) |> expand_bern(response = "killed", siz
 ## decreasing wrt var 1, convex wrt var 2
 m_scam_tedecv <- scam(killed ~ s(initial, size, bs = "tedecv"), data = xx, family = binomial)
 
-scam_pred <- wb_gam_pred
+scam_pred <- odo_gam_pred
 scam_pred$prop <- predict(m_scam_tedecv, newdata = scam_pred, type = "response")
-wb_plotly_scam <- wb_plotly_0 |> add_trace(type =  "mesh3d", data = scam_pred, opacity = 0.4)
-img(wb_plotly_scam)
+odo_plotly_scam <- odo_plotly_0 |> add_trace(type =  "mesh3d", data = scam_pred, opacity = 0.4)
+img(odo_plotly_scam)
 
 ss <- s(initial, size, bs = "tedecv")
 x2 <- x |> rename(Size = "size") ## hack, 'size' is confounded
@@ -165,7 +165,7 @@ get_info(m_gam_te, newdata = x, init_dens = "initial")
 get_info(m_RTMB_tedecv, newdata = x, init_dens = "initial")
 
 ## adapt rf_predfun guts rather than trying to make everything universal/back-compatible
-newdata <- wb_gam_pred
+newdata <- odo_gam_pred
 olddata <- x2
 init_dens <- "initial"
 response <- "killed"
@@ -197,9 +197,12 @@ preds_RTMB <- (preds0
     |> transmute(initial = newdata$initial, size = newdata$size, prop = plogis(value), lwr = plogis(value-qq*sd),
                  upr = plogis(value+qq*sd))
 )
+odo_plotly_RTMB_tecdv <- odo_plotly_0 |> add_trace(type =  "mesh3d", data = preds_RTMB, opacity = 0.4)
+print(odo_plotly_RTMB_tecdv)
+img(odo_plotly_RTMB_tecdv)
 
 ## include m_RTMB_tedecv ???
-wb_aictab <- (map_dfr(tibble::lst(m_scam_tedecv, m_gam_te, m_mle2_rickerprop),
+odo_aictab <- (map_dfr(tibble::lst(m_scam_tedecv, m_gam_te, m_mle2_rickerprop),
                       \(m) get_info(m, newdata = x, init_dens = "initial"),
                       .id = "model")
     |> arrange(AIC)
@@ -208,12 +211,12 @@ wb_aictab <- (map_dfr(tibble::lst(m_scam_tedecv, m_gam_te, m_mle2_rickerprop),
     |> mutate(across(model, \(x) gsub("_", "/", gsub("^m_", "", x))))
 )
 
-save("wb_aictab", file = "waterbug_stuff.rda")
+save("odo_aictab", file = "odo_stuff.rda")
 
-load("wb_semimech.rda")
-wb_plotly_RTMB_sm <- wb_plotly_0 |> add_trace(type =  "mesh3d", data = RTMB_sm_pred, opacity = 0.4)
-print(wb_plotly_RTMB_sm)
-img(wb_plotly_RTMB_sm)
+load("odo_semimech.rda")
+odo_plotly_RTMB_sm <- odo_plotly_0 |> add_trace(type =  "mesh3d", data = RTMB_sm_pred, opacity = 0.4)
+print(odo_plotly_RTMB_sm)
+img(odo_plotly_RTMB_sm)
 
 ## original waterbug JAGS model for odonates (power-Ricker + prop, random effects of block)
 ## 

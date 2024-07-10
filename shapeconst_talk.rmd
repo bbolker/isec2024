@@ -1,7 +1,7 @@
 ---
 title: "Shape-constrained models for functional responses"
 author: Ben Bolker
-date: ?? July 2024
+date: 16 July 2024
 bibliography: isec2024.bib
 csl: reflist2.csl
 output:
@@ -22,6 +22,8 @@ header-includes:
 - \newcommand{\btheta}{\boldsymbol \theta}
 - \newcommand{\bzero}{\boldsymbol 0}
 ---
+
+<!-- https://stackoverflow.com/questions/30900006/r-markdonw-ioslides-title-page-format-changes -->
 
 <style>
 .refs {
@@ -47,7 +49,7 @@ h3 {
 </style>
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(echo = FALSE, dpi = 200, optipng = knitr::hook_optipng)
+knitr::opts_chunk$set(echo = FALSE, dpi = 200, optipng = knitr::hook_optipng, fig.align = "center")
 options(bitmapType = "cairo")
 ```
 
@@ -61,13 +63,17 @@ library(tidyverse)
 
 ## modeling tradeoffs
 
-@levinsStrategy1966 proposed that models faced a tradeoff among **realism**, **precision**, and **generality**
+@levinsStrategy1966: modelers face a tradeoff among **realism**, **precision**, and **generality**
 
-1. realism and precision [engineering: "tactical" models]
-2. precision and generality [physics/"spherical cow": Lotka-Volterra style]
-3. realism and generality [math]
+* realism and precision  
+[engineering: **tactical** models]
+* precision and generality  
+[physics: "spherical cow", e.g. Lotka-Volterra model]
+* realism and generality  
+[math: qualitative models,  
+e.g. "$f(x)$ is monotonically increasing"]
 
-see also @alday1978
+see also @aday1978
 
 <!-- https://tex.stackexchange.com/questions/544666/how-to-cite-a-song-in-a-bib-file -->
 <!-- https://tex.stackexchange.com/questions/449191/using-biblatex-with-r-markdown -->
@@ -79,10 +85,23 @@ see also @alday1978
 ::: {}
 
 - precise, more realistic, less general
-- often choose from large family of options
-- very particular assumptions
-   - e.g. power-logistic vs. $t$-distribution
 - interpretable/testable parameters
+- often have to select among many options
+- induce specific (implicit) assumptions about curve shape
+
+```{r, eval = FALSE}
+par(mfrow=c(1,2), las = 1, bty = "l")
+gengauss <- function(x, mu=0, alpha=1, beta = 2) {
+    beta/(2*alpha*gamma(1/beta))*exp(-(abs(x-mu)/alpha)^beta)
+}
+betavec <- c(0.5, 1, 2, 4, 8)
+xvec <- seq(-3, 3, length.out = 101)
+gmat <- sapply(betavec, \(b) gengauss(xvec, beta = b))
+matplot(gmat, type = "l", lty = 1, ann = FALSE, axes = FALSE); box()
+tvec <- c(1, 2, 10, 20, 100)
+tmat <- sapply(tvec, \(t) dt(xvec, df = t))
+matplot(tmat, type = "l", lty = 1, ann = FALSE, axes = FALSE); box()
+```
 
 :::
 
@@ -98,18 +117,27 @@ knitr::include_graphics("pix/quinnderiso.png")
 
 ::::
 
-## realism via nonparametric models
+## non/semiparametric models
 
-* curves
+gain precision without sacrificing realism and generality (?)
 
-## semiparametric models
-
-@ellnerNoise1998b, @woodPartially2001
+* **generalized additive models**
+   * increase generality ("$f(x)$ is a smooth function")
+   * generally *phenomenological*
+   * harder to interpret
+* **semi-mechanistic models**
+   * aka "partially specified", "semi-parametric"
+   * combine known structure with flexible curves
+   * @ellnerNoise1998b, @woodPartially2001, @nelsonCapturing2004, @thorsonBayesian2014b
 
 ## shape-constrained models
 
+* more specific/stronger constraints than "$f(x)$ is smooth"
+* e.g. $f(x)$ is monotonic, unimodal, convex, concave ...
+* e.g. @ramsayEstimating1998 (monotone), @munchBayesian2005, @andersenBayesian2017, @kollmannUnimodal2014
+* but especially @pyaShape2015 
 
-## bases
+## shape-constrained bases
 
 ```{r bases, echo = FALSE, out.width = "100%"}
 set.seed(101)
@@ -131,14 +159,15 @@ pfun(sm2$X, "P-spline")
 pfun(sm1$X, "Monotonic p-spline")
 ```
 
+## reed frog predation [@voneshCompensatory2005]
 
-## reed frog example (raw data)
+* data + Holling type 2 fit
 
 ```{r get_rf}
 L <- load("reedfrog_stuff.rda")
 ```
 
-```{r rf-raw, out.width = "70%"}
+```{r rf-raw, out.width = "70%", fig.align = "center"}
 pf <- (pred_frame
     |> filter(model == "mle2_holling")
     |> mutate(across(c(prob, lwr, upr), ~. * Initial))
@@ -151,7 +180,7 @@ ggplot(pf, aes(x = Initial)) +
     labs(y = "Number predated")
 ```
 
-## reed frog example (fits)
+## model fits to *per capita* pred
 
 ```{r fit-plot, out.width = "100%"}
 pf <- pred_frame |> filter(model != "RTMB_mpd")
@@ -163,7 +192,9 @@ pred_plot <- function(var, data = pred_frame) {
         expand_limits(y=0) +
         geom_point(data=dd, aes(y = Killed/Initial, size = Killed), alpha = 0.5) +
         facet_wrap(vars(!!var)) +
-        theme(legend.position = "none")
+        labs(x = "Initial density", y = "Predation probability") +
+        theme(legend.position = "none") +
+        theme(panel.spacing = grid::unit(0.25, "lines"))
     return(gg0)
 }
 pred_plot(model, pf)
@@ -172,43 +203,74 @@ pred_plot(model, pf)
 ## goodness of fit
 
 ```{r aictab1}
-pander::pander(rf_aictab, digits = 2)
+rf2 <- rename(rf_aictab, ΔAIC = "AIC", Δnll = "nll")
+pander::pander(rf2, digits = 2, justify = "lccc", keep.trailing.zeros = TRUE)
 ```
 
 ## size/density interactions
 
-```{r wb-0, out.width="60%"}
+*  @mccoyPredicting2011:  
+dragonfly nymphs vs. red-eyed treefrog tadpoles
+
+```{r wb-0, out.width="60%", fig.align = "center"}
 knitr::include_graphics("pix/wb_plotly_0.png")
 ```
 
 ## mechanistic fit
 
-attack rate = Ricker, handling time = prop to size
+predation prob = $a(s)/(1+a(s) h(s) x)$  
+$a(s)$ = Ricker, $h(s) = cs$
 
-```{r wb-param, out.width="60%"}
+```{r wb-param, out.width="60%", fig.align = "center"}
 knitr::include_graphics("pix/wb_plotly_param.png")
 ```
 
 ## GAM fit
 
-```{r wb-gam, out.width="60%"}
+`mgcv::gam()`  
+with `s(size, initial, bs = "te")`
+
+```{r wb-gam, out.width="60%", fig.align = "center"}
 knitr::include_graphics("pix/wb_plotly_gam.png")
 ```
 
 ## shape-constrained fit
 
-```{r wb-scam, out.width="60%"}
+`scam::scam()`  
+with `bs = "tedecv"` (decreasing × concave)
+
+```{r wb-scam, out.width="60%", fig.align = "center"}
 knitr::include_graphics("pix/wb_plotly_scam.png")
 ```
 
-## goal/loose ends
+## shape-constrained fit (RTMB)
 
-* make shape-constrained bases more generally available  
-(e.g. as components of more complex/semimechanistic models)
-    * RTMB
-	* glmmTMB?
-* flush out bugs in `scam`/make `RTMB` fitting more robust	
-* expand set of possible constraints (e.g. unimodal functions)
+`RTMB`  
+same basis/penalty as `scam`
+
+```{r wb-RTMB, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/wb_plotly_RTMB1.png")
+```
+
+## goodness of fit
+
+```{r wb-aic}
+L <- load("waterbug_stuff.rda")
+pander::pander(wb_aictab, digits = c(2, 2, 3, 2), justify = "lccc", keep.trailing.zeros = TRUE)
+```
+
+## conclusions
+
+* Acknowledgements
+    * "shoulders of giants" (Wood [`mgcv`], Pya [`scam`], Kristensen [`RTMB`])
+	* data providers (Mike McCoy, James Vonesh)
+	* $$ (NSERC Discovery)
+* Source: https://github.com/bbolker/isec2024
+* Future goals
+    * shape-constrained smooths as 'plug and play' components of more complex models
+    * fix `scam` bugs/robustify `RTMB` fitting
+    * more constraint options (e.g. unimodal functions)
+    * hypothesis testing ...
 
 <!-- https://bookdown.org/yihui/rmarkdown-cookbook/multi-column.html -->
 
@@ -230,7 +292,26 @@ knitr::include_graphics("pix/wb_plotly_scam.png")
 ::::
 -->
 
+<!-- https://stackoverflow.com/questions/28815781/how-to-move-the-bibliography-in-markdown-pandoc/44546963#44546963 -->
+
+## references {#refs .refs .columns-2 .pre}
 
 
-## references {.refs .columns-2 .pre}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

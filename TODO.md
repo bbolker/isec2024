@@ -1,6 +1,34 @@
 ## to do
 
-##  simulations
+##  cosmetic
+
+* tweak RF fits pic: leave out RTMB_holling, rename RTMB2_mpd .. adjust _ to / 
+* renaming!! "waterbug" = "odonate predation of red-eyed treefrogs"
+* improve reflist CSL, e.g. "Pya and Wood" vs "Pya et al"
+* pix, natural history background for reed frogs/red-eyed tree frogs (pred, prey)
+* improve captions for plotly figs
+* troubleshoot semimech fit??
+* McMaster logo?
+* improve README
+
+## technical notes/future to-do
+
+* instability of Laplace approx for small, noisy data sets. `inner.control` helps a little bit ...
+* possibly related to rank-deficiency of penalty matrix (== precision matrix)?  AFAICT the Wood 2004 appendix A trick to split off the rank-deficient components is incompatible with the positivity constraints (i.e. we would like to do Laplace approximation only over the 'random' components but ...)
+* GCV vs ML/REML selection
+* are there other Wood/Pya computational tricks we can use in an RTMB/TMB context? 
+* regularization?
+* `scam`: better knot selection (e.g. based on *unique* x values)? fix binomial/N>1 bug?
+* experiment with constrained opt. vs exponentiation
+* bases/constraints corresponding to unimodal smooths?
+* fart around with optimization alternatives, e.g. `DEoptim` ???
+* `tmbstan` (with priors/regularization)?
+
+## non-cosmetic
+
+* ecdf/AIC for RTMB? (test with `scam_binom_test.R`, `scam_mpd_test.R` examples)
+
+???
 
 ## reed frogs
 
@@ -11,8 +39,6 @@
 * get lambda, ecdf from RTMB_mpd, scam_mpd
    * `sp` is multiplied by 
 * compare AIC values?
-* ?? what does holling type 2 look like ??
-
 * tmbstan
 * constrained optimization?
 * bad knots? too many, wrong place? (hard to adjust ...)
@@ -27,8 +53,6 @@
 
 larvae of red-eyed treefrogs Agalychnis callidryas and two species of aquatic invertebrate predators, adult predatory water bugs (Belostoma sp. Belostomatidae) and dragonfly nymphs (Pantala flavescens Libellulidae)
 
-
-## simulations?
 
 ## other
 

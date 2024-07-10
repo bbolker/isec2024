@@ -78,6 +78,7 @@ fit_mpd_fun <- function(data,
                         random = "b1",
                         silent = TRUE,
                         opt = "nlminb",
+                        se.fit = TRUE,
                         ...) {
     form$term <- xvar
     ## if predicting, make sure to pass old knots so basis is constructed properly
@@ -100,9 +101,12 @@ fit_mpd_fun <- function(data,
         ## shouldn't need to map() b since we are using best-fit  if random = NULL ?
         ## if (!is.null(random)) parms <- parms[setdiff(names(parms), random)]
         obj$fn(unlist(parms))
-        sdr <- sdreport(obj)
-        return(with(sdr,
-                    data.frame(nm = names(value), value, sd)))
+        if (se.fit) {
+            sdr <- sdreport(obj)
+            return(with(sdr,
+                        data.frame(nm = names(value), value, sd)))
+        } else {
+        }
     }
     res <- with(obj,
                 switch(opt,
@@ -219,3 +223,22 @@ s_help <- function(s) {
     help(sprintf("smooth.construct.%s.smooth.spec", s))
 }
 
+get_info <- function(fit, newdata = dd, init_dens = "N", killed = "killed", predresp = "mu") {
+    if (inherits(fit, "scam")) {
+        df <- attr(logLik(fit), "df")
+        pp <- drop(predict(fit, newdata = newdata, type = "response"))
+        nll <- -sum(dbinom(newdata[[killed]], size = newdata[[init_dens]], prob = pp, log = TRUE))
+        AIC <- 2*(nll + df)
+    } else if (inherits(fit, "myRTMB")) {
+        pp <- fit[[predresp]]
+        nll <- -sum(dbinom(newdata[[killed]], size = newdata[[init_dens]], prob = pp, log = TRUE))
+        df <- NA
+        AIC <- NA
+    } else {
+        nll <- -logLik(fit)
+        df <- attr(nll, "df")
+        nll <- c(nll)
+        AIC <- AIC(fit)
+    }
+    tibble(AIC, nll, df)
+}

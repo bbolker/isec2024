@@ -15,7 +15,7 @@ source("funs.R")
 
 datfn <- "McCoy_response_surfaces_Gamboa.csv"
 
-## belostomatids only
+## odonates only
 x <- (read.csv(datfn)
     |> transform(block = factor(block))
     |> subset(cohort == "single" & predtype == "odo",
@@ -36,7 +36,7 @@ gg2 <- ggplot(x, aes(x = initial, y = size)) +
     ## stat_sum(aes(colour= killed/initial)) +
     geom_point(aes(colour = killed/initial), size = 4) +
     scale_colour_viridis_c()
-print(gg2)
+## print(gg2)
 
 marker <- list(color = ~prop,
                colorscale = c('#FFE1A1', '#683531'), 
@@ -85,7 +85,7 @@ aictab <- tibble(resframe, aic = sapply(res, AIC)) |> mutate(across(aic, ~ . - m
     
 
 ## power-ricker or  ricker attack rate, proportional handling time
-fit1 <- mle2(killed ~ dbinom(prob = 1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
+m_mle2_rickerprop <- mle2(killed ~ dbinom(prob = 1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
                              size = initial),
              start = list(c=1,d=20,h=20),
              control = list(parscale= c(c=1,d=20,h=20)),
@@ -103,7 +103,7 @@ cc <- curve3d(1/(1/(c*size/d*exp(1-size/d)) + h*size*initial),
               xlim = c(0, 60),
               ylim = c(0, 100),
 ##            1/(1/(c*size/d*exp(1-size/d)) + h*size*initial)
-        data = as.list(coef(fit1)),
+        data = as.list(coef(m_mle2_rickerprop)),
         varnames = c("size", "initial"),
         sys3d = "image")
 
@@ -114,11 +114,11 @@ wb_plotly_param <- (wb_plotly_0
 )
 img(wb_plotly_param)
 
-wb_gam_te <- gam(cbind(killed, initial-killed) ~ te(size, initial),
+m_gam_te <- gam(cbind(killed, initial-killed) ~ te(size, initial),
             data = x, family = binomial)
 
 wb_gam_pred <- expand.grid(size = 0:60, initial = 0:100)
-wb_gam_pred$prop <- predict(wb_gam_te, newdata = gam_pred, type = "response")
+wb_gam_pred$prop <- predict(m_gam_te, newdata = wb_gam_pred, type = "response")
 
 wb_plotly_gam <- (wb_plotly_0
     |> add_trace(type =  "mesh3d", data = wb_gam_pred, opacity = 0.4)
@@ -134,16 +134,16 @@ xx <- x |> select(killed, size, initial) |> expand_bern(response = "killed", siz
 ## https://plotly.com/r/static-image-export/
 
 ## decreasing wrt var 1, convex wrt var 2
-wb_scam_tedecv <- scam(killed ~ s(initial, size, bs = "tedecv"), data = xx, family = binomial)
+m_scam_tedecv <- scam(killed ~ s(initial, size, bs = "tedecv"), data = xx, family = binomial)
 
-scam_pred <- gam_pred
-scam_pred$prop <- predict(fit3, newdata = scam_pred, type = "response")
+scam_pred <- wb_gam_pred
+scam_pred$prop <- predict(m_scam_tedecv, newdata = scam_pred, type = "response")
 wb_plotly_scam <- wb_plotly_0 |> add_trace(type =  "mesh3d", data = scam_pred, opacity = 0.4)
 img(wb_plotly_scam)
 
 ss <- s(initial, size, bs = "tedecv")
 x2 <- x |> rename(Size = "size") ## hack, 'size' is confounded
-fit_RTMB <- fit_mpd_fun(data = x2[c("killed", "Size", "initial")],
+m_RTMB_tedecv <- fit_mpd_fun(data = x2[c("killed", "Size", "initial")],
             response = "killed",
             xvar = c("Size", "initial"),
             form = s(size, initial, bs = "tesmd2"),
@@ -153,52 +153,69 @@ fit_RTMB <- fit_mpd_fun(data = x2[c("killed", "Size", "initial")],
             opt = "BFGS",
             start = list(b0 = -2, log_smD = 2),
             ## works with random = NULL; start from better values?
+            ## 'initial value in vmmin is not finite' ...
             random = NULL)
+m_RTMB_tedecv$fit
 
-xp <- expand.grid(Size = 8:60, initial = 6:100)
-k <- (smoothCon(s(Size, initial, bs="tesmd2"),
-                data = x2, absorb.cons = TRUE)[[1]]$knots
-    |> as.data.frame()
-    |> setNames(c("Size", "initial"))
+c(nll_gam = -sum(dbinom(x2$killed, size = x2$initial, prob = predict(m_gam_te, type = "response"), log = TRUE)),
+  nll_RTMB = -sum(dbinom(x2$killed, size = x2$initial, prob = m_RTMB_tedecv$mu, log = TRUE)))
+
+get_info(m_scam_tedecv, newdata = x, init_dens = "initial")
+get_info(m_gam_te, newdata = x, init_dens = "initial")
+get_info(m_RTMB_tedecv, newdata = x, init_dens = "initial")
+
+## adapt rf_predfun guts rather than trying to make everything universal/back-compatible
+newdata <- wb_gam_pred
+olddata <- x2
+init_dens <- "initial"
+response <- "killed"
+fit <- m_RTMB_tedecv
+n_new <- nrow(newdata)
+
+ddp <- data.frame(
+    Size = c(olddata$Size, newdata$size),  ## change cap again
+    initial = c(olddata[[init_dens]], newdata[[init_dens]]),
+    killed = c(olddata[[response]], rep(NA_integer_, n_new)))
+k <- data.frame(initial = smoothCon(s(Size, initial, bs="tesmd2"), data = olddata, absorb.cons = TRUE)[[1]]$knots)
+ee <- fit$obj$env
+pp <- c(split(unname(ee$last.par.best), names(ee$last.par.best)))
+ci_level <- 0.95
+
+preds0 <- fit_mpd_fun(data = ddp, response = response,
+                      size = ddp[[init_dens]],
+                      xvar = c("Size", "initial"),
+                      form = s(x, y, bs = "tesmd2"), 
+                      family = "binomial",
+                      random = NULL,
+                      knots = k,
+                      predict = TRUE,
+                      parms = pp)
+qq <- qnorm((1+ci_level)/2)
+preds_RTMB <- (preds0
+    |> filter(nm == "eta")
+    |> slice_tail(n = n_new)
+    |> transmute(initial = newdata$initial, size = newdata$size, prop = plogis(value), lwr = plogis(value-qq*sd),
+                 upr = plogis(value+qq*sd))
 )
 
-if (FALSE) {
-    preds0 <- fit_mpd_fun(data = xp, response = "Killed",
-                          size = x$initial, xvar = c("Size", "initial"),
-                          family = "binomial", random = NULL,
-                          knots = k, predict = TRUE,
-                          parms = with(fit_RTMB$obj$env, parList(last.par.best)))
-}
+## include m_RTMB_tedecv ???
+wb_aictab <- (map_dfr(tibble::lst(m_scam_tedecv, m_gam_te, m_mle2_rickerprop),
+                      \(m) get_info(m, newdata = x, init_dens = "initial"),
+                      .id = "model")
+    |> arrange(AIC)
+    |> mutate(across(c(AIC, nll), ~ . - min(., na.rm = TRUE)))
+    |> rename_with(\(x) paste0("Δ", x), c(AIC, nll))
+    |> mutate(across(model, \(x) gsub("_", "/", gsub("^m_", "", x))))
+)
 
-with(x, plot(fit_RTMB$mu, killed/initial))
-abline(a=0, b=1)  ## could be worse?
-## predictions?
+save("wb_aictab", file = "waterbug_stuff.rda")
 
-## marginaleffects::predictions(fit3, newdata = data.frame(size=20, initial=20))
-## devtools::load_all("~/R/pkgs/scam")
-## predict(fit3, newdata = data.frame(size=20, initial=20))
-## debug(predict.scam)
+load("wb_semimech.rda")
+wb_plotly_RTMB_sm <- wb_plotly_0 |> add_trace(type =  "mesh3d", data = RTMB_sm_pred, opacity = 0.4)
+print(wb_plotly_RTMB_sm)
+img(wb_plotly_RTMB_sm)
 
-## X[, object$smooth[[k]]$first.para:object$smooth[[k]]$last.para] <- Xfrag %*% object$smooth[[k]]$Zc
-
-## fp <- object$smooth[[k]]$first.para  ## 2
-## lp <- object$smooth[[k]]$last.para ## 49
-## X1 <- X[,fp:lp, drop = FALSE]
-## object$smooth[[k]]$cmX
-
-## X[, object$smooth[[k]]$first.para:object$smooth[[k]]$last.para] <- sweep(X[, object$smooth[[k]]$first.para:object$smooth[[k]]$last.para], 2, object$smooth[[k]]$cmX)
-
-cc_scam <- curve3d(predict(fit3, newdata = data.frame(size, initial), type = "response"),
-              xlim = c(0, 60),
-              ylim = c(0, 100),
-##            1/(1/(c*size/d*exp(1-size/d)) + h*size*initial)
-        varnames = c("size", "initial"),
-        sys3d = "image")
-
-if (interactive()) p2 |> add_trace(type =  "mesh3d", data = long_fmt(cc_scam), opacity = 0.4)
-
-## unimodal??
-
+## original waterbug JAGS model for odonates (power-Ricker + prop, random effects of block)
 ## 
 ## for (i in 1:N) {
 ##     ## ar[i] <- cvec[block[i]]*pow(size[i]/d,gamma)*exp(1-size[i]/d)

@@ -180,7 +180,6 @@ mle2_AIC <- AIC(m_mle2_holling)
 
 with(dd, -sum(dbinom(Killed, size = Initial, prob = m_RTMB_mpd$mu, log = TRUE)))
 
-
 rf_aictab <- tibble(
     model = c("scam/mpd", "gam/tp", "mle2/holling"),
     AIC = c(scam_AIC, gam_AIC, mle2_AIC),

@@ -3,7 +3,6 @@
 ##  cosmetic
 
 * tweak RF fits pic: leave out RTMB_holling, rename RTMB2_mpd .. adjust _ to / 
-* renaming!! "waterbug" = "odonate predation of red-eyed treefrogs"
 * turn off SD prediction to speed up redeye_odo fits
 * improve reflist CSL, e.g. "Pya and Wood" vs "Pya et al"
 * pix, natural history background for reed frogs/red-eyed tree frogs (pred, prey)

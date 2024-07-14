@@ -1,0 +1,4 @@
+Sys.setenv(OPENSSL_CONF="/dev/null")
+library(rmarkdown)
+library(webshot)
+rmdshot("shapeconst_talk.rmd", "shapeconst_talk.pdf")

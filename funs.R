@@ -223,6 +223,7 @@ s_help <- function(s) {
     help(sprintf("smooth.construct.%s.smooth.spec", s))
 }
 
+##' compute AIC, logLik, etc.
 get_info <- function(fit, newdata = dd, init_dens = "N", killed = "killed", predresp = "mu") {
     if (inherits(fit, "scam")) {
         df <- attr(logLik(fit), "df")
@@ -232,6 +233,7 @@ get_info <- function(fit, newdata = dd, init_dens = "N", killed = "killed", pred
     } else if (inherits(fit, "myRTMB")) {
         pp <- fit[[predresp]]
         nll <- -sum(dbinom(newdata[[killed]], size = newdata[[init_dens]], prob = pp, log = TRUE))
+        ## df: 1/(1+lambda D)^(-1) ?
         df <- NA
         AIC <- NA
     } else {
@@ -240,5 +242,9 @@ get_info <- function(fit, newdata = dd, init_dens = "N", killed = "killed", pred
         nll <- c(nll)
         AIC <- AIC(fit)
     }
-    tibble(AIC, nll, df)
+    ## scam, gam have nobs methods, but not reliable for scam/expanded data
+    nobs <- nrow(newdata)
+    ## AIC: k*df*(df+1)/(nobs-df-1)
+    AICc <- AIC + 2*df*(df+1)/(nobs-df-1)
+    tibble(AIC, AICc, nll, df)
 }

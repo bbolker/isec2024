@@ -59,8 +59,11 @@ odo_plotly_0 <- (plot_ly(x= ~initial, y = ~size, z = ~prop)
     |> add_markers(data = x, marker = marker, showlegend = FALSE)
     |> add_paths(data = seg_data(x, prop), , showlegend = FALSE)
     |> hide_colorbar()
-    |> layout(scene = list(yaxis = list(rangemode = "tozero"),
-                           xaxis = list(rangemode = "tozero"),
+    |> layout(scene = list(yaxis = list(rangemode = "tozero",
+                                        title = "Size (mm)"),
+                           xaxis = list(rangemode = "tozero",
+                                        title = "Initial density"),
+                           zaxis = list(title = "Prop killed"),
                            camera = list(eye = list(x = 2.5, y = 2, z = 1)),
                            showlegend=FALSE))
 )
@@ -81,7 +84,11 @@ img(odo_plotly_0)
 ## are these for belo or odo??
 L <- load("waterbug_fits_2.RData")
 L <- load("waterbug_fits_2z.RData")
-aictab <- tibble(resframe, aic = sapply(res, AIC)) |> mutate(across(aic, ~ . - min(.))) |> arrange(aic)
+
+aictab <- (tibble(resframe, aic = sapply(res, AIC))
+    |> mutate(across(aic, ~ . - min(.)))
+    |> arrange(aic)
+)
     
 
 ## power-ricker or  ricker attack rate, proportional handling time
@@ -202,16 +209,16 @@ print(odo_plotly_RTMB_tecdv)
 img(odo_plotly_RTMB_tecdv)
 
 ## include m_RTMB_tedecv ???
-odo_aictab <- (map_dfr(tibble::lst(m_scam_tedecv, m_gam_te, m_mle2_rickerprop),
+odo_aicctab <- (map_dfr(tibble::lst(m_scam_tedecv, m_gam_te, m_mle2_rickerprop),
                       \(m) get_info(m, newdata = x, init_dens = "initial"),
                       .id = "model")
-    |> arrange(AIC)
-    |> mutate(across(c(AIC, nll), ~ . - min(., na.rm = TRUE)))
-    |> rename_with(\(x) paste0("Δ", x), c(AIC, nll))
+    |> arrange(AICc)
+    |> mutate(across(c(AIC, AICc, nll), ~ . - min(., na.rm = TRUE)))
+    |> select(-AIC)
+    |> rename_with(\(x) paste0("Δ", x), c(AICc, nll))
     |> mutate(across(model, \(x) gsub("_", "/", gsub("^m_", "", x))))
 )
-
-save("odo_aictab", file = "odo_stuff.rda")
+save("odo_aicctab", file = "odo_stuff.rda")
 
 load("odo_semimech.rda")
 odo_plotly_RTMB_sm <- odo_plotly_0 |> add_trace(type =  "mesh3d", data = RTMB_sm_pred, opacity = 0.4)

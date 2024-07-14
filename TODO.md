@@ -11,8 +11,18 @@
 * McMaster logo?
 * improve README
 
+```r
+Sys.setenv(OPENSSL_CONF="/dev/null")
+library(rmarkdown)
+library(webshot)
+rmdshot("shapeconst_talk.rmd", "document.pdf")
+```
+
+
 ## technical notes/future to-do
 
+* AICc
+* ridge.correct
 * instability of Laplace approx for small, noisy data sets. `inner.control` helps a little bit ...
 * possibly related to rank-deficiency of penalty matrix (== precision matrix)?  AFAICT the Wood 2004 appendix A trick to split off the rank-deficient components is incompatible with the positivity constraints (i.e. we would like to do Laplace approximation only over the 'random' components but ...)
 * GCV vs ML/REML selection

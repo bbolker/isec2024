@@ -203,8 +203,8 @@ pred_plot(model, pf)
 ## goodness of fit
 
 ```{r aictab1}
-rf2 <- rename(rf_aictab, ΔAIC = "AIC", Δnll = "nll")
-pander::pander(rf2, digits = 2, justify = "lccc", keep.trailing.zeros = TRUE)
+pander::pander(rf_aicctab,
+               digits = 2, justify = "lccc", keep.trailing.zeros = TRUE)
 ```
 
 ## size/density interactions
@@ -256,7 +256,8 @@ knitr::include_graphics("pix/odo_plotly_RTMB_tecdv.png")
 
 ```{r odo-aic}
 L <- load("odo_stuff.rda")
-pander::pander(odo_aictab, digits = c(2, 2, 3, 2), justify = "lccc", keep.trailing.zeros = TRUE)
+pander::pander(odo_aicctab, digits = c(2, 2, 3, 2),
+               justify = "lccc", keep.trailing.zeros = TRUE)
 ```
 
 ## conclusions

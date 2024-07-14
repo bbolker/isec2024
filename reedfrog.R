@@ -165,29 +165,18 @@ pred_plot <- function(var, data = pred_frame) {
 print(pred_plot(model))
 
 ## compute log-likelihoods?
-scam_df <- attr(logLik(m_scam_mpd), "df")
-pp <- drop(predict(m_scam_mpd, newdata = dd, type = "response"))
-scam_nll <- with(dd, -sum(dbinom(Killed, size = Initial, prob = pp, log = TRUE)))
-scam_AIC <- 2*(scam_nll + scam_df)
+rf_aicctab <- (map_dfr(tibble::lst(m_scam_mpd, m_gam_tp, m_mle2_holling),
+                       \(m) get_info(m, newdata = dd, init_dens = "Initial",
+                                     killed = "Killed"),
+                      .id = "model")
+    |> arrange(AICc)
+    |> mutate(across(c(AIC, AICc, nll), ~ . - min(., na.rm = TRUE)))
+    |> select(-AIC)
+    |> rename_with(\(x) paste0("Δ", x), c(AICc, nll))
+    |> mutate(across(model, \(x) gsub("_", "/", gsub("^m_", "", x))))
+)
 
-gam_df <- attr(gll <- logLik(m_gam_tp), "df")
-gam_nll <- -1*c(gll)
-gam_AIC <- AIC(m_gam_tp)
-
-mle2_nll <- -1*(mll <- logLik(m_mle2_holling))
-mle2_df <- attr(mll, "df")
-mle2_AIC <- AIC(m_mle2_holling)
-
-with(dd, -sum(dbinom(Killed, size = Initial, prob = m_RTMB_mpd$mu, log = TRUE)))
-
-rf_aictab <- tibble(
-    model = c("scam/mpd", "gam/tp", "mle2/holling"),
-    AIC = c(scam_AIC, gam_AIC, mle2_AIC),
-    nll = c(scam_nll, gam_nll, mle2_nll),
-    df = c(scam_df, gam_df, mle2_df)
-) |> mutate(across(c(AIC, nll), ~ . - min(.)))
-
-save("dd", "pred_plot", "pred_frame", "rf_aictab", file = "reedfrog_stuff.rda")
+save("dd", "pred_plot", "pred_frame", "rf_aicctab", file = "reedfrog_stuff.rda")
 ## scam CIs are not monotonic??
 
 ## investigate 'oversmoothing' of RTMB ...
